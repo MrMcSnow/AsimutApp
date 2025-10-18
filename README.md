@@ -10,7 +10,7 @@ Sie bündelt alle wichtigen Hochschuldienste an einem Ort – von Asimut über L
 
 ---
 
-## 🇩🇪 **Hauptfunktionen**
+## DE **Hauptfunktionen**
 
 - 🗂️ **Schneller Zugriff auf Hochschul-Dienste**
   - **Asimut** – Raum- und Stundenplanverwaltung  
@@ -100,7 +100,7 @@ Jazz & Media Student @ HMTMH
 
 ---
 
-# 🇬🇧 **English Version**
+# EN **English Version**
 
 **AsimutApp** is a mobile application for students of the **Hochschule für Musik, Theater und Medien Hannover (HMTMH)**, bringing all essential academic tools together — Asimut, LMS, QIS, StudMail, PaperCut, and the university website — in one intuitive app.
 
