@@ -8,6 +8,8 @@
     <string name="card_management_back">Zurück</string>
     <string name="card_management_delete_hint">Löschhinweis anzeigen</string>
     <string name="add_card_fab_content_description">Neue Karte hinzufügen</string>
+    <string name="add_card_first_name_hint">Vorname</string>
+    <string name="add_card_last_name_hint">Nachname</string>
     <string name="card_limit_reached">Du kannst maximal %1$d Karten speichern.</string>
     <string name="student_card_saved">Studierendenausweis gespeichert.</string>
     <string name="delete_card_title">Karte entfernen</string>

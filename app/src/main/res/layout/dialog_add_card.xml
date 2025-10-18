@@ -9,13 +9,13 @@
         android:id="@+id/first_name_edit_text"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Vornahme" />
+        android:hint="@string/add_card_first_name_hint" />
 
     <EditText
         android:id="@+id/last_name_edit_text"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Nachnahme" />
+        android:hint="@string/add_card_last_name_hint" />
 
     <EditText
         android:id="@+id/matrikelnummer_edit_text"
