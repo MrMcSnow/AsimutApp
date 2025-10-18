@@ -11,13 +11,13 @@ import android.util.TypedValue
 import androidx.core.content.ContextCompat
 import com.asimut.R
 import java.util.Locale
+import kotlin.math.min
 
 class StudentCardRenderer(context: Context) {
 
     private val resources = context.resources
 
-    private val templateBitmap: Bitmap = BitmapFactory.decodeResource(resources, R.drawable.blank_card)
-        ?: throw IllegalStateException("Unable to decode blank card drawable")
+    private val templateBitmap: Bitmap = decodeTemplateBitmap()
 
     private val namePrimaryPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = ContextCompat.getColor(context, R.color.student_card_text_primary)
@@ -51,6 +51,69 @@ class StudentCardRenderer(context: Context) {
 
     private val badgeNfcBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = ContextCompat.getColor(context, R.color.student_card_nfc_badge_background)
+    }
+
+    private fun decodeTemplateBitmap(): Bitmap {
+        val options = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        BitmapFactory.decodeResource(resources, R.drawable.blank_card, options)
+
+        if (options.outWidth <= 0 || options.outHeight <= 0) {
+            return BitmapFactory.decodeResource(resources, R.drawable.blank_card)
+                ?: throw IllegalStateException("Unable to decode blank card drawable")
+        }
+
+        val displayMetrics = resources.displayMetrics
+        val requestedWidth = min(displayMetrics.widthPixels, MAX_TEMPLATE_WIDTH_PX)
+            .coerceAtLeast(1)
+        val requestedHeight = (requestedWidth.toFloat() / options.outWidth * options.outHeight)
+            .toInt()
+            .coerceAtLeast(1)
+
+        val decodeOptions = BitmapFactory.Options().apply {
+            inJustDecodeBounds = false
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+            inMutable = false
+            inSampleSize = calculateInSampleSize(
+                options.outWidth,
+                options.outHeight,
+                requestedWidth,
+                requestedHeight
+            )
+        }
+
+        val decoded = BitmapFactory.decodeResource(resources, R.drawable.blank_card, decodeOptions)
+            ?: throw IllegalStateException("Unable to decode blank card drawable")
+
+        if (decoded.width <= requestedWidth && decoded.height <= requestedHeight) {
+            return decoded
+        }
+
+        val scaled = Bitmap.createScaledBitmap(decoded, requestedWidth, requestedHeight, true)
+        if (scaled != decoded) {
+            decoded.recycle()
+        }
+        return scaled
+    }
+
+    private fun calculateInSampleSize(
+        originalWidth: Int,
+        originalHeight: Int,
+        requestedWidth: Int,
+        requestedHeight: Int
+    ): Int {
+        var inSampleSize = 1
+        if (originalHeight > requestedHeight || originalWidth > requestedWidth) {
+            var halfHeight = originalHeight / 2
+            var halfWidth = originalWidth / 2
+            while ((halfHeight / inSampleSize) >= requestedHeight &&
+                (halfWidth / inSampleSize) >= requestedWidth
+            ) {
+                inSampleSize *= 2
+            }
+        }
+        return inSampleSize
     }
 
     fun render(
@@ -166,5 +229,6 @@ class StudentCardRenderer(context: Context) {
         private const val LAST_NAME_PERCENT = 0.66f
         private const val MATRIKEL_PERCENT = 0.76f
         private const val BIRTH_DATE_PERCENT = 0.84f
+        private const val MAX_TEMPLATE_WIDTH_PX = 1400
     }
 }
