@@ -34,6 +34,34 @@
             android:padding="12dp"
             android:animateLayoutChanges="true">
 
+            <androidx.constraintlayout.widget.Guideline
+                android:id="@+id/guideline_first_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                app:layout_constraintGuide_percent="0.58" />
+
+            <androidx.constraintlayout.widget.Guideline
+                android:id="@+id/guideline_last_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                app:layout_constraintGuide_percent="0.66" />
+
+            <androidx.constraintlayout.widget.Guideline
+                android:id="@+id/guideline_matrikelnummer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                app:layout_constraintGuide_percent="0.76" />
+
+            <androidx.constraintlayout.widget.Guideline
+                android:id="@+id/guideline_birth_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                app:layout_constraintGuide_percent="0.84" />
+
             <TextView
                 android:id="@+id/card_payment_badge"
                 style="@style/TextAppearance.MaterialComponents.Caption"
@@ -72,39 +100,36 @@
                 android:id="@+id/card_first_name"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="150dp"
                 android:text="First Name"
                 android:textColor="@color/student_card_text_primary"
                 android:textSize="14sp"
                 android:textStyle="bold"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintTop_toTopOf="@id/guideline_first_name"
                 tools:text="Max" />
 
             <TextView
                 android:id="@+id/card_last_name"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
                 android:text="Last Name"
                 android:textColor="@color/student_card_text_primary"
                 android:textSize="14sp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/card_first_name"
+                app:layout_constraintTop_toTopOf="@id/guideline_last_name"
                 tools:text="Mustermann" />
 
             <TextView
                 android:id="@+id/card_matrikelnummer"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
                 android:text="Matrikelnummer"
                 android:textColor="@color/student_card_text_secondary"
                 android:textSize="14sp"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/card_last_name"
+                app:layout_constraintTop_toTopOf="@id/guideline_matrikelnummer"
                 tools:text="123456" />
 
             <TextView
@@ -112,12 +137,11 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="16dp"
-                android:layout_marginTop="4dp"
                 android:text="Birth Date"
                 android:textColor="@color/student_card_text_secondary"
                 android:textSize="14sp"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/card_matrikelnummer"
+                app:layout_constraintTop_toTopOf="@id/guideline_birth_date"
                 tools:text="01.01.2000" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
