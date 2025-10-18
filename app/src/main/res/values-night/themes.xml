@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.MyApp" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/asimut_header</item>
+        <item name="colorPrimaryDark">@color/asimut_header</item>
+        <item name="colorAccent">@color/asimut_header</item>
+        <item name="android:statusBarColor">@color/asimut_header</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

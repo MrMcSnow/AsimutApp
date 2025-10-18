@@ -1,0 +1,32 @@
+<resources>
+
+    <!-- Base application theme -->
+    <style name="Theme.Asimut" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Customize your theme here -->
+        <item name="colorPrimary">@color/asimut_header</item>
+        <item name="colorPrimaryDark">@color/asimut_header</item>
+        <item name="colorAccent">@color/teal_200</item>
+        <item name="android:statusBarColor">@color/asimut_header</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:fitsSystemWindows">false</item>
+    </style>
+
+    <!-- Define the NavigationViewTheme -->
+    <style name="NavigationViewTheme" parent="Theme.MaterialComponents.DayNight">
+        <item name="colorPrimary">@color/asimut_header</item>
+        <item name="colorPrimaryDark">@color/asimut_header</item>
+        <item name="colorAccent">@color/teal_200</item>
+        <item name="android:statusBarColor">@color/asimut_header</item>
+    </style>
+
+    <!-- Conditional styles for API level 23 and above -->
+    <style name="Theme.Asimut.API23" parent="Theme.Asimut">
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <style name="NavigationViewTheme.API23" parent="NavigationViewTheme">
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+</resources>

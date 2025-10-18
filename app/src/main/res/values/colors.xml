@@ -1,0 +1,11 @@
+<resources>
+    <color name="purple_200">#E50083</color>
+    <color name="purple_500">#E50083</color>
+    <color name="purple_700">#E50083</color>
+    <color name="teal_200">#E50083</color>
+    <color name="teal_700">#E50083</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="asimut_header">#E50083</color>
+    <color name="asimut_status_bar">#FF000000</color> <!-- Пример цвета для строки состояния -->
+</resources>

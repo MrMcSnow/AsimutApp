@@ -1,0 +1,30 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_asimut"
+        android:icon="@drawable/ic_calendar"
+        android:title="ASIMUT" />
+    <item
+        android:id="@+id/nav_lms"
+        android:icon="@drawable/ic_graduation_cap"
+        android:title="LMS" />
+    <item
+        android:id="@+id/nav_qis"
+        android:icon="@drawable/ic_qis"
+        android:title="QIS" />
+    <item
+        android:id="@+id/nav_studmail"
+        android:icon="@drawable/ic_studmail"
+        android:title="StudMail" />
+    <item
+        android:id="@+id/nav_hmtmh"
+        android:icon="@drawable/ic_asimut"
+        android:title="HMTMH Seite" />
+    <item
+        android:id="@+id/nav_papercut"
+        android:icon="@drawable/ic_papercut"
+        android:title="PaperCut" />
+    <item
+        android:id="@+id/nav_clear_credentials"
+        android:icon="@drawable/ic_delete"
+        android:title="Anmeldedaten löschen" />
+</menu>
