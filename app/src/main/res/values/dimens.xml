@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="card_stack_overlap">24dp</dimen>
+    <dimen name="card_stack_lift">20dp</dimen>
+    <dimen name="card_stack_sibling_offset">48dp</dimen>
+    <dimen name="card_collapsed_elevation">4dp</dimen>
+    <dimen name="card_expanded_elevation">8dp</dimen>
+    <dimen name="swipe_background_radius">16dp</dimen>
+</resources>
