@@ -38,6 +38,8 @@ import com.google.android.material.card.MaterialCardView
 import java.io.File
 import java.io.FileOutputStream
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -60,6 +62,8 @@ class CardManagementActivity : AppCompatActivity() {
 
     private var isFabHiddenByScroll = false
     private var activeDialog: AlertDialog? = null
+    private var showNfcBannerOnce = false
+    private var nfcBannerHideJob: Job? = null
 
     private val pickDeutschlandTicketLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -76,6 +80,7 @@ class CardManagementActivity : AppCompatActivity() {
                 val toastMessage = message ?: getString(R.string.student_card_nfc_saved_toast)
                 Toast.makeText(this, toastMessage, Toast.LENGTH_LONG).show()
                 maybePromptForDefaultPaymentSelection(cardId)
+                showNfcBannerOnce = true
                 loadCards()
             } else {
                 loadCards()
@@ -128,6 +133,8 @@ class CardManagementActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        nfcBannerHideJob?.cancel()
+        nfcBannerHideJob = null
         activeDialog?.dismiss()
         super.onDestroy()
     }
@@ -337,8 +344,9 @@ class CardManagementActivity : AppCompatActivity() {
 
     private fun updateNfcStatusBanner(defaultCard: StudentCard?) {
         val hasActiveNfc = defaultCard?.nfcTagId?.isNotBlank() == true
-        nfcStatusBanner.isVisible = hasActiveNfc
-        if (hasActiveNfc && defaultCard != null) {
+        val shouldShowBanner = showNfcBannerOnce && hasActiveNfc
+
+        if (shouldShowBanner && defaultCard != null) {
             val displayName = listOf(defaultCard.firstName, defaultCard.lastName)
                 .filter { it.isNotBlank() }
                 .joinToString(" ")
@@ -347,8 +355,22 @@ class CardManagementActivity : AppCompatActivity() {
                 R.string.student_card_nfc_active_banner,
                 displayName
             )
+            nfcStatusBanner.isVisible = true
+
+            nfcBannerHideJob?.cancel()
+            nfcBannerHideJob = lifecycleScope.launch {
+                delay(NFC_BANNER_DISPLAY_DURATION)
+                nfcStatusBanner.isVisible = false
+                nfcStatusText.text = ""
+                showNfcBannerOnce = false
+                nfcBannerHideJob = null
+            }
         } else {
+            nfcBannerHideJob?.cancel()
+            nfcBannerHideJob = null
+            nfcStatusBanner.isVisible = false
             nfcStatusText.text = ""
+            showNfcBannerOnce = false
         }
     }
 
@@ -714,5 +736,6 @@ class CardManagementActivity : AppCompatActivity() {
         private const val MIME_PKPASS = "application/vnd.apple.pkpass"
         private const val MIME_ZIP = "application/zip"
         private const val FAB_ANIMATION_DURATION = 200L
+        private const val NFC_BANNER_DISPLAY_DURATION = 5_000L
     }
 }
