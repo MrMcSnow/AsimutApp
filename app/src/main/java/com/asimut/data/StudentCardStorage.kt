@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import com.asimut.models.StudentCard
 import java.util.UUID
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
 
 class StudentCardStorage(context: Context) {
@@ -16,31 +17,36 @@ class StudentCardStorage(context: Context) {
         val serialized = preferences.getString(KEY_STUDENT_CARDS, null) ?: return emptyList()
         if (serialized.isBlank()) return emptyList()
 
-        val array = JSONArray(serialized)
-        val result = mutableListOf<StudentCard>()
-        for (index in 0 until array.length()) {
-            val json = array.optJSONObject(index) ?: continue
-            val id = json.optString(JSON_ID)
-            val firstName = json.optString(JSON_FIRST_NAME)
-            val lastName = json.optString(JSON_LAST_NAME)
-            val matrikelnummer = json.optString(JSON_MATRIKELNUMMER)
-            val birthDate = json.optString(JSON_BIRTH_DATE)
-            val nfcTagId = json.optString(JSON_NFC_TAG_ID).takeIf { !it.isNullOrBlank() }
-            val nfcPayload = json.optString(JSON_NFC_PAYLOAD).takeIf { !it.isNullOrBlank() }
-            if (id.isNullOrBlank() || matrikelnummer.isNullOrBlank()) continue
-            result.add(
-                StudentCard(
-                    id = id,
-                    firstName = firstName,
-                    lastName = lastName,
-                    matrikelnummer = matrikelnummer,
-                    birthDate = birthDate,
-                    nfcTagId = nfcTagId,
-                    nfcPayload = nfcPayload
+        try {
+            val array = JSONArray(serialized)
+            val result = mutableListOf<StudentCard>()
+            for (index in 0 until array.length()) {
+                val json = array.optJSONObject(index) ?: continue
+                val id = json.optString(JSON_ID)
+                val firstName = json.optString(JSON_FIRST_NAME)
+                val lastName = json.optString(JSON_LAST_NAME)
+                val matrikelnummer = json.optString(JSON_MATRIKELNUMMER)
+                val birthDate = json.optString(JSON_BIRTH_DATE)
+                val nfcTagId = json.optString(JSON_NFC_TAG_ID).takeIf { !it.isNullOrBlank() }
+                val nfcPayload = json.optString(JSON_NFC_PAYLOAD).takeIf { !it.isNullOrBlank() }
+                if (id.isNullOrBlank() || matrikelnummer.isNullOrBlank()) continue
+                result.add(
+                    StudentCard(
+                        id = id,
+                        firstName = firstName,
+                        lastName = lastName,
+                        matrikelnummer = matrikelnummer,
+                        birthDate = birthDate,
+                        nfcTagId = nfcTagId,
+                        nfcPayload = nfcPayload
+                    )
                 )
-            )
+            }
+            return result
+        } catch (error: JSONException) {
+            preferences.edit().remove(KEY_STUDENT_CARDS).apply()
+            return emptyList()
         }
-        return result
     }
 
     fun addCard(card: StudentCard) {
