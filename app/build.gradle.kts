@@ -41,7 +41,6 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.7.0")
     implementation("com.squareup.picasso:picasso:2.71828")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
-    implementation("androidx.cardview:cardview:1.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("com.google.zxing:core:3.5.3")
 
