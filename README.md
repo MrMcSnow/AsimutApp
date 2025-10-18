@@ -3,7 +3,7 @@
 [![Android](https://img.shields.io/badge/Platform-Android-green.svg)](https://developer.android.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Build](https://img.shields.io/badge/Build-Release-success.svg)](https://github.com/MrMcSnow/AsimutApp/releases)
-[![Version](https://img.shields.io/badge/Version-1.1.0-orange.svg)]()
+[![Version](https://img.shields.io/badge/Version-1.3.0-orange.svg)]()
 
 _AsimutApp_ ist eine mobile Anwendung für Studierende der **Hochschule für Musik, Theater und Medien Hannover (HMTMH)**.  
 Sie bündelt alle wichtigen Hochschuldienste an einem Ort – von Asimut über LMS bis zum Deutschlandticket.
