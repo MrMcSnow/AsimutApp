@@ -233,9 +233,27 @@ class CardAdapter(
             qrImageView.isVisible = qrBitmap != null
             qrImageView.setImageBitmap(qrBitmap)
 
-            itemView.setOnLongClickListener {
-                onDeleteClick(card)
-                true
+        override fun bindContent(item: CardListItem) {
+            val ticket = (item as CardListItem.Ticket).ticket
+            val context = itemView.context
+
+            titleText.text = ticket.title.ifBlank { context.getString(R.string.deutschlandticket_title_fallback) }
+            subtitleText.isVisible = !ticket.subtitle.isNullOrBlank()
+            subtitleText.text = ticket.subtitle ?: ""
+
+            val validityParts = mutableListOf<String>()
+            val validFrom = ticket.validFrom
+            val validTo = ticket.validTo
+            if (!validFrom.isNullOrBlank() && !validTo.isNullOrBlank()) {
+                validityParts += context.getString(R.string.deutschlandticket_validity_range_format, validFrom, validTo)
+            } else if (!validFrom.isNullOrBlank()) {
+                validityParts += context.getString(R.string.deutschlandticket_valid_from_format, validFrom)
+            } else if (!validTo.isNullOrBlank()) {
+                validityParts += context.getString(R.string.deutschlandticket_valid_to_format, validTo)
+            }
+
+            ticket.expirationDate?.let {
+                validityParts += context.getString(R.string.deutschlandticket_expiration_format, it)
             }
 
             if (validityParts.isNotEmpty()) {

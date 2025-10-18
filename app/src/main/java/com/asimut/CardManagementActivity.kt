@@ -86,8 +86,16 @@ class CardManagementActivity : AppCompatActivity() {
         sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         loadCards()
 
-        backButton.setOnClickListener {
-            finish()
+        loadCards()
+        updateFabVisibility()
+
+        backButton.setOnClickListener { finish() }
+        addCardFab.setOnClickListener {
+            if (hasReachedLimit()) {
+                Toast.makeText(this, getString(R.string.card_limit_reached, MAX_CARDS), Toast.LENGTH_LONG).show()
+            } else {
+                showCardTypeSelectionSheet()
+            }
         }
     }
 
