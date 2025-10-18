@@ -1,4 +1,27 @@
 <resources>
     <string name="app_name">Asimut</string>
     <string name="menu_button_description">Open navigation drawer</string>
+    <string name="nfc_not_supported">NFC wird auf diesem Gerät nicht unterstützt. Manuelle Eingabe ist weiterhin möglich.</string>
+    <string name="card_type_student">Studierendenausweis</string>
+    <string name="card_type_deutschland_ticket">Deutschlandticket</string>
+    <string name="card_type_prompt">Welche Karte möchtest du hinzufügen?</string>
+    <string name="card_limit_reached">Du kannst maximal %1$d Karten speichern.</string>
+    <string name="student_card_saved">Studierendenausweis gespeichert.</string>
+    <string name="delete_card_title">Karte entfernen</string>
+    <string name="delete_card_message">Möchtest du diese Karte wirklich löschen?</string>
+    <string name="delete_yes">Ja</string>
+    <string name="delete_no">Nein</string>
+    <string name="deutschlandticket_import_success">Deutschlandticket wurde hinzugefügt.</string>
+    <string name="deutschlandticket_import_failed">Deutschlandticket konnte nicht importiert werden.</string>
+    <string name="deutschlandticket_file_missing">Die Ticketdatei konnte nicht gelesen werden.</string>
+    <string name="deutschlandticket_title_fallback">Deutschlandticket</string>
+    <string name="deutschlandticket_holder_format">Name: %1$s</string>
+    <string name="deutschlandticket_ticket_number_format">Ticketnummer: %1$s</string>
+    <string name="deutschlandticket_birth_date_format">Geburtsdatum: %1$s</string>
+    <string name="deutschlandticket_validity_format">Gültig: %1$s</string>
+    <string name="deutschlandticket_status_format">Status: %1$s</string>
+    <string name="deutschlandticket_provider_format">Anbieter: %1$s</string>
+    <string name="deutschlandticket_customer_number_format">Kundennummer: %1$s</string>
+    <string name="deutschlandticket_expiration_format">Ablaufdatum: %1$s</string>
+    <string name="deutschlandticket_alt_text_format">Alt-Text: %1$s</string>
 </resources>
