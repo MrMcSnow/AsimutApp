@@ -8,4 +8,5 @@
     <color name="white">#FFFFFFFF</color>
     <color name="asimut_header">#E50083</color>
     <color name="asimut_status_bar">#FF000000</color> <!-- Пример цвета для строки состояния -->
+    <color name="card_delete_background">#D32F2F</color>
 </resources>

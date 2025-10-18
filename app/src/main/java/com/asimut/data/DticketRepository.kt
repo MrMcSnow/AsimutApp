@@ -1,0 +1,82 @@
+package com.asimut.data
+
+import android.content.Context
+import android.content.SharedPreferences
+import android.graphics.Bitmap
+import android.net.Uri
+import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
+
+object DticketRepository {
+
+    private const val PREFS_NAME = "dticket_repository"
+    private const val KEY_PASS_JSON = "dticket_json"
+    private const val KEY_UPDATED_AT = "dticket_updated_at"
+    private const val KEY_PKPASS_PATH = "dticket_pkpass_path"
+    private const val KEY_PREVIEW_PATH = "dticket_preview_path"
+    private const val KEY_TICKET_ID = "dticket_ticket_id"
+
+    fun savePassData(
+        context: Context,
+        ticketId: String,
+        passJson: String,
+        pkpassPath: String,
+        previewPath: String?
+    ) {
+        preferences(context).edit().apply {
+            putString(KEY_TICKET_ID, ticketId)
+            putString(KEY_PASS_JSON, passJson)
+            putLong(KEY_UPDATED_AT, System.currentTimeMillis())
+            putString(KEY_PKPASS_PATH, pkpassPath)
+            putString(KEY_PREVIEW_PATH, previewPath ?: "")
+        }.apply()
+    }
+
+    fun getTicketId(context: Context): String? =
+        preferences(context).getString(KEY_TICKET_ID, null)?.takeIf { it.isNotBlank() }
+
+    fun getPassJson(context: Context): JSONObject? {
+        val raw = preferences(context).getString(KEY_PASS_JSON, null) ?: return null
+        return runCatching { JSONObject(raw) }.getOrNull()
+    }
+
+    fun getPassJsonString(context: Context): String? =
+        preferences(context).getString(KEY_PASS_JSON, null)?.takeIf { it.isNotBlank() }
+
+    fun getUpdatedAt(context: Context): Long? {
+        val value = preferences(context).getLong(KEY_UPDATED_AT, -1L)
+        return if (value <= 0L) null else value
+    }
+
+    fun getPkpassPath(context: Context): String? =
+        preferences(context).getString(KEY_PKPASS_PATH, null)?.takeIf { it.isNotBlank() }
+
+    fun getPreviewPath(context: Context): String? =
+        preferences(context).getString(KEY_PREVIEW_PATH, null)?.takeIf { it.isNotBlank() }
+
+    fun savePreviewBitmap(context: Context, bitmap: Bitmap): String? {
+        return runCatching {
+            val directory = File(context.filesDir, PASSES_DIR).apply { if (!exists()) mkdirs() }
+            val file = File(directory, PREVIEW_FILE_NAME)
+            FileOutputStream(file).use { output ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+                output.flush()
+            }
+            file.absolutePath
+        }.getOrNull()
+    }
+
+    private fun preferences(context: Context): SharedPreferences =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    fun previewUri(context: Context): Uri? {
+        val path = getPreviewPath(context) ?: return null
+        val file = File(path)
+        if (!file.exists()) return null
+        return Uri.fromFile(file)
+    }
+
+    private const val PASSES_DIR = "passes"
+    private const val PREVIEW_FILE_NAME = "deutschlandticket.png"
+}
