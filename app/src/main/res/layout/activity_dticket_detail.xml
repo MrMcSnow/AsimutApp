@@ -61,23 +61,11 @@
             android:textColor="@android:color/black" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/update_ticket_button"
-            style="@style/Widget.MaterialComponents.Button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/deutschlandticket_update_button"
-            app:icon="@drawable/ic_refresh"
-            app:iconGravity="textStart"
-            app:iconPadding="16dp"
-            app:iconTint="@android:color/white" />
-
-        <com.google.android.material.button.MaterialButton
             android:id="@+id/detail_open_original"
             style="@style/Widget.MaterialComponents.Button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="24dp"
             android:text="@string/deutschlandticket_open_original"
             app:icon="@drawable/ic_folder"
             app:iconGravity="textStart"
