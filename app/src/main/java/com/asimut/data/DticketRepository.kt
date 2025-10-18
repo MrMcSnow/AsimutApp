@@ -57,7 +57,7 @@ object DticketRepository {
 
     fun savePreviewBitmap(context: Context, bitmap: Bitmap): String? {
         return runCatching {
-            val directory = File(context.filesDir, PASSES_DIR).apply { if (!exists()) mkdirs() }
+            val directory = File(context.filesDir, PASSES_DIRECTORY).apply { if (!exists()) mkdirs() }
             val file = File(directory, PREVIEW_FILE_NAME)
             FileOutputStream(file).use { output ->
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
@@ -85,6 +85,6 @@ object DticketRepository {
         preferences(context).edit().clear().apply()
     }
 
-    private const val PASSES_DIR = "passes"
+    const val PASSES_DIRECTORY = "passes"
     private const val PREVIEW_FILE_NAME = "deutschlandticket.png"
 }
