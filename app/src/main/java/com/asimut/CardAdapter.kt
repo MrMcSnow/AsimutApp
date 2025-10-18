@@ -7,10 +7,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
-import androidx.cardview.widget.CardView
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
 import com.asimut.util.BarcodeUtil
+import com.google.android.material.card.MaterialCardView
 
 class CardAdapter(
     private val items: List<CardItem>,
@@ -23,7 +24,9 @@ class CardAdapter(
             val firstName: String,
             val lastName: String,
             val matrikelnummer: String,
-            val birthDate: String
+            val birthDate: String,
+            val isDefaultPayment: Boolean,
+            val isNfcConfigured: Boolean
         ) : CardItem()
 
         data class DeutschlandTicketCard(
@@ -80,10 +83,13 @@ class CardAdapter(
     }
 
     private inner class StudentCardViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val cardView: MaterialCardView = itemView as MaterialCardView
         private val firstNameTextView: TextView = itemView.findViewById(R.id.card_first_name)
         private val lastNameTextView: TextView = itemView.findViewById(R.id.card_last_name)
         private val matrikelnummerTextView: TextView = itemView.findViewById(R.id.card_matrikelnummer)
         private val birthDateTextView: TextView = itemView.findViewById(R.id.card_birth_date)
+        private val defaultBadgeTextView: TextView = itemView.findViewById(R.id.card_payment_badge)
+        private val nfcStatusTextView: TextView = itemView.findViewById(R.id.card_nfc_status)
 
         fun bind(card: CardItem.StudentCard) {
             firstNameTextView.text = card.firstName
@@ -91,12 +97,22 @@ class CardAdapter(
             matrikelnummerTextView.text = card.matrikelnummer
             birthDateTextView.text = card.birthDate
 
+            val context = itemView.context
+            val strokeWidth =
+                if (card.isDefaultPayment) context.resources.getDimensionPixelSize(R.dimen.student_card_default_stroke_width)
+                else 0
+            cardView.strokeWidth = strokeWidth
+            cardView.strokeColor = ContextCompat.getColor(context, R.color.student_card_default_stroke)
+
+            defaultBadgeTextView.isVisible = card.isDefaultPayment
+            nfcStatusTextView.isVisible = card.isNfcConfigured
+
             itemView.setOnClickListener { onItemClick(card) }
         }
     }
 
     private inner class DeutschlandTicketViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        private val cardView: CardView = itemView as CardView
+        private val cardView: MaterialCardView = itemView as MaterialCardView
         private val titleTextView: TextView = itemView.findViewById(R.id.dt_title_text)
         private val logoTextView: TextView = itemView.findViewById(R.id.dt_logo_text)
         private val holderNameTextView: TextView = itemView.findViewById(R.id.dt_holder_name)

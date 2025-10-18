@@ -1,15 +1,21 @@
 package com.asimut
 
 import android.content.Intent
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
@@ -21,10 +27,13 @@ import com.asimut.data.DticketRepository
 import com.asimut.data.StudentCardStorage
 import com.asimut.data.TicketsRepository
 import com.asimut.models.Dticket
+import com.asimut.models.StudentCard
 import com.asimut.util.BarcodeUtil
+import com.asimut.StudentCardNfcCaptureActivity
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.android.material.card.MaterialCardView
 import java.io.File
 import java.io.FileOutputStream
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +47,9 @@ class CardManagementActivity : AppCompatActivity() {
     private lateinit var addCardFab: FloatingActionButton
     private lateinit var backButton: ImageButton
     private lateinit var cardRecyclerView: RecyclerView
+    private lateinit var deleteHintButton: ImageButton
+    private lateinit var nfcStatusBanner: MaterialCardView
+    private lateinit var nfcStatusText: TextView
 
     private lateinit var studentCardStorage: StudentCardStorage
     private lateinit var ticketsRepository: TicketsRepository
@@ -55,6 +67,20 @@ class CardManagementActivity : AppCompatActivity() {
             }
         }
 
+    private val captureStudentCardLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                val cardId = result.data?.getStringExtra(StudentCardNfcCaptureActivity.EXTRA_CARD_ID)
+                val message = result.data?.getStringExtra(StudentCardNfcCaptureActivity.EXTRA_STATUS_MESSAGE)
+                val toastMessage = message ?: getString(R.string.student_card_nfc_saved_toast)
+                Toast.makeText(this, toastMessage, Toast.LENGTH_LONG).show()
+                maybePromptForDefaultPaymentSelection(cardId)
+                loadCards()
+            } else {
+                loadCards()
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_card_management)
@@ -65,11 +91,14 @@ class CardManagementActivity : AppCompatActivity() {
         backButton = findViewById(R.id.back_button)
         addCardFab = findViewById(R.id.add_card_fab)
         cardRecyclerView = findViewById(R.id.card_recycler_view)
+        deleteHintButton = findViewById(R.id.delete_hint_button)
+        nfcStatusBanner = findViewById(R.id.nfc_status_banner)
+        nfcStatusText = findViewById(R.id.nfc_status_text)
 
         cardAdapter = CardAdapter(cards, ::handleCardClick)
         cardRecyclerView.layoutManager = LinearLayoutManager(this)
         cardRecyclerView.adapter = cardAdapter
-        attachSwipeToDelete()
+        attachSwipeGestures()
         cardRecyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 if (!addCardFab.isVisible || hasReachedLimit()) return
@@ -82,6 +111,9 @@ class CardManagementActivity : AppCompatActivity() {
         })
 
         backButton.setOnClickListener { finish() }
+        deleteHintButton.setOnClickListener {
+            Toast.makeText(this, R.string.card_swipe_delete_hint, Toast.LENGTH_SHORT).show()
+        }
         addCardFab.setOnClickListener {
             if (hasReachedLimit()) {
                 Toast.makeText(this, getString(R.string.card_limit_reached, MAX_CARDS), Toast.LENGTH_LONG).show()
@@ -91,6 +123,7 @@ class CardManagementActivity : AppCompatActivity() {
         }
 
         loadCards()
+        maybePromptForDefaultPaymentSelection(null)
     }
 
     override fun onDestroy() {
@@ -98,7 +131,18 @@ class CardManagementActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    private fun attachSwipeToDelete() {
+    private fun attachSwipeGestures() {
+        val deleteBackgroundColor = ContextCompat.getColor(this, R.color.card_swipe_delete_background)
+        val defaultBackgroundColor = ContextCompat.getColor(this, R.color.card_swipe_default_background)
+        val deleteIcon = ContextCompat.getDrawable(this, R.drawable.ic_delete_white)
+        val deletePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = deleteBackgroundColor }
+        val defaultBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = defaultBackgroundColor }
+        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = ContextCompat.getColor(this@CardManagementActivity, R.color.card_swipe_default_text)
+            textSize = resources.getDimension(R.dimen.card_swipe_default_text_size)
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        }
+
         val callback = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
             override fun onMove(
                 recyclerView: RecyclerView,
@@ -106,11 +150,107 @@ class CardManagementActivity : AppCompatActivity() {
                 target: RecyclerView.ViewHolder
             ): Boolean = false
 
+            override fun getMovementFlags(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder
+            ): Int {
+                val position = viewHolder.bindingAdapterPosition
+                val card = cards.getOrNull(position)
+                val swipeFlags = when (card) {
+                    is CardItem.StudentCard -> ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT
+                    is CardItem.DeutschlandTicketCard -> ItemTouchHelper.LEFT
+                    else -> 0
+                }
+                return makeMovementFlags(0, swipeFlags)
+            }
+
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 val position = viewHolder.bindingAdapterPosition
                 if (position != RecyclerView.NO_POSITION) {
-                    showDeleteConfirmation(position)
+                    val card = cards.getOrNull(position)
+                    when {
+                        direction == ItemTouchHelper.LEFT -> {
+                            showDeleteConfirmation(position)
+                        }
+                        direction == ItemTouchHelper.RIGHT && card is CardItem.StudentCard -> {
+                            if (card.isDefaultPayment) {
+                                Toast.makeText(
+                                    this@CardManagementActivity,
+                                    R.string.student_card_already_default,
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            } else {
+                                studentCardStorage.setDefaultCardId(card.id)
+                                Toast.makeText(
+                                    this@CardManagementActivity,
+                                    R.string.student_card_swipe_set_default_success,
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                            loadCards()
+                        }
+                        else -> {
+                            cardAdapter.notifyItemChanged(position)
+                        }
+                    }
                 }
+            }
+
+            override fun onChildDraw(
+                c: Canvas,
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                dX: Float,
+                dY: Float,
+                actionState: Int,
+                isCurrentlyActive: Boolean
+            ) {
+                if (actionState == ItemTouchHelper.ACTION_STATE_SWIPE) {
+                    val itemView = viewHolder.itemView
+                    val position = viewHolder.bindingAdapterPosition
+                    if (position == RecyclerView.NO_POSITION) {
+                        super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
+                        return
+                    }
+                    val card = cards.getOrNull(position)
+
+                    if (dX < 0) {
+                        val background = RectF(
+                            itemView.right + dX,
+                            itemView.top.toFloat(),
+                            itemView.right.toFloat(),
+                            itemView.bottom.toFloat()
+                        )
+                        c.drawRect(background, deletePaint)
+
+                        deleteIcon?.let { icon ->
+                            val itemHeight = itemView.bottom - itemView.top
+                            val iconTop = itemView.top + (itemHeight - icon.intrinsicHeight) / 2
+                            val iconMargin = (itemHeight - icon.intrinsicHeight) / 2
+                            val iconLeft = itemView.right - iconMargin - icon.intrinsicWidth
+                            val iconRight = itemView.right - iconMargin
+                            val iconBottom = iconTop + icon.intrinsicHeight
+                            icon.setBounds(iconLeft, iconTop, iconRight, iconBottom)
+                            icon.draw(c)
+                        }
+                    } else if (dX > 0 && card is CardItem.StudentCard) {
+                        val background = RectF(
+                            itemView.left.toFloat(),
+                            itemView.top.toFloat(),
+                            itemView.left + dX,
+                            itemView.bottom.toFloat()
+                        )
+                        c.drawRect(background, defaultBackgroundPaint)
+
+                        val text = getString(R.string.card_swipe_default_label).uppercase()
+                        val textWidth = textPaint.measureText(text)
+                        val textX = itemView.left + minOf(dX / 2f, itemView.width / 2f) - textWidth / 2f
+                        val textY = itemView.top + (itemView.height / 2f) - (textPaint.descent() + textPaint.ascent()) / 2f
+                        c.drawText(text, textX, textY, textPaint)
+                    }
+                }
+
+                super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
             }
         }
         ItemTouchHelper(callback).attachToRecyclerView(cardRecyclerView)
@@ -120,13 +260,21 @@ class CardManagementActivity : AppCompatActivity() {
         cards.clear()
 
         val studentCards = studentCardStorage.getCards()
-        studentCards.mapTo(cards) { card ->
+        val defaultCardId = studentCardStorage.getDefaultCardId()
+        val sortedStudentCards = studentCards.sortedWith(
+            compareByDescending<StudentCard> { card -> card.id == defaultCardId }
+                .thenBy { card -> card.lastName.lowercase() }
+                .thenBy { card -> card.firstName.lowercase() }
+        )
+        sortedStudentCards.mapTo(cards) { card ->
             CardItem.StudentCard(
                 id = card.id,
                 firstName = card.firstName,
                 lastName = card.lastName,
                 matrikelnummer = card.matrikelnummer,
-                birthDate = card.birthDate
+                birthDate = card.birthDate,
+                isDefaultPayment = card.id == defaultCardId,
+                isNfcConfigured = !card.nfcTagId.isNullOrBlank()
             )
         }
 
@@ -137,6 +285,8 @@ class CardManagementActivity : AppCompatActivity() {
 
         cardAdapter.notifyDataSetChanged()
         updateFabVisibility()
+        val defaultCard = sortedStudentCards.firstOrNull { it.id == defaultCardId }
+        updateNfcStatusBanner(defaultCard)
     }
 
     private fun showDeleteConfirmation(position: Int) {
@@ -175,9 +325,7 @@ class CardManagementActivity : AppCompatActivity() {
             }
         }
 
-        cards.removeAt(position)
-        cardAdapter.notifyItemRemoved(position)
-        updateFabVisibility()
+        loadCards()
     }
 
     private fun updateFabVisibility() {
@@ -185,6 +333,23 @@ class CardManagementActivity : AppCompatActivity() {
     }
 
     private fun hasReachedLimit(): Boolean = cards.size >= MAX_CARDS
+
+    private fun updateNfcStatusBanner(defaultCard: StudentCard?) {
+        val hasActiveNfc = defaultCard?.nfcTagId?.isNotBlank() == true
+        nfcStatusBanner.isVisible = hasActiveNfc
+        if (hasActiveNfc && defaultCard != null) {
+            val displayName = listOf(defaultCard.firstName, defaultCard.lastName)
+                .filter { it.isNotBlank() }
+                .joinToString(" ")
+                .ifBlank { defaultCard.matrikelnummer }
+            nfcStatusText.text = getString(
+                R.string.student_card_nfc_active_banner,
+                displayName
+            )
+        } else {
+            nfcStatusText.text = ""
+        }
+    }
 
     private fun hideFabForScroll() {
         isFabHiddenByScroll = true
@@ -269,18 +434,60 @@ class CardManagementActivity : AppCompatActivity() {
 
         val card = studentCardStorage.createCard(firstName, lastName, matrikelnummer, birthDate)
         studentCardStorage.addCard(card)
-        cards.add(
-            CardItem.StudentCard(
-                id = card.id,
-                firstName = card.firstName,
-                lastName = card.lastName,
-                matrikelnummer = card.matrikelnummer,
-                birthDate = card.birthDate
-            )
-        )
-        cardAdapter.notifyItemInserted(cards.lastIndex)
-        updateFabVisibility()
+        loadCards()
         Toast.makeText(this, R.string.student_card_saved, Toast.LENGTH_SHORT).show()
+        launchStudentCardNfcCapture(card)
+    }
+
+    private fun launchStudentCardNfcCapture(card: StudentCard) {
+        val intent = StudentCardNfcCaptureActivity.createIntent(
+            context = this,
+            cardId = card.id,
+            firstName = card.firstName,
+            lastName = card.lastName
+        )
+        captureStudentCardLauncher.launch(intent)
+    }
+
+    private fun maybePromptForDefaultPaymentSelection(preferredCardId: String?) {
+        val studentCards = studentCardStorage.getCards()
+        if (studentCards.isEmpty()) return
+
+        val currentDefaultId = studentCardStorage.getDefaultCardId()
+        if (studentCards.size <= 2) {
+            val candidate = preferredCardId ?: currentDefaultId ?: studentCards.first().id
+            if (!candidate.isNullOrBlank() && candidate != currentDefaultId) {
+                studentCardStorage.setDefaultCardId(candidate)
+            }
+            return
+        }
+
+        val shouldPrompt = currentDefaultId.isNullOrBlank() || (preferredCardId != null && preferredCardId != currentDefaultId)
+        if (!shouldPrompt) return
+
+        val names = studentCards.map { card ->
+            listOf(card.firstName, card.lastName).filter { it.isNotBlank() }.joinToString(" ").ifBlank { card.matrikelnummer }
+        }
+        var selectedIndex = studentCards.indexOfFirst { it.id == (preferredCardId ?: currentDefaultId) }
+        if (selectedIndex < 0) selectedIndex = 0
+
+        activeDialog?.dismiss()
+        activeDialog = AlertDialog.Builder(this)
+            .setTitle(R.string.student_card_choose_default_title)
+            .setSingleChoiceItems(names.toTypedArray(), selectedIndex) { _, which ->
+                selectedIndex = which
+            }
+            .setPositiveButton(R.string.student_card_choose_default_confirm) { dialog, _ ->
+                val chosenCard = studentCards.getOrNull(selectedIndex)
+                if (chosenCard != null) {
+                    studentCardStorage.setDefaultCardId(chosenCard.id)
+                    loadCards()
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .create()
+        activeDialog?.show()
     }
 
     private fun launchDeutschlandTicketPicker() {
@@ -462,12 +669,34 @@ class CardManagementActivity : AppCompatActivity() {
 
     private fun handleCardClick(card: CardItem) {
         when (card) {
-            is CardItem.StudentCard -> Unit
+            is CardItem.StudentCard -> {
+                if (card.isDefaultPayment) {
+                    Toast.makeText(this, R.string.student_card_already_default, Toast.LENGTH_SHORT).show()
+                } else {
+                    showSetDefaultCardDialog(card)
+                }
+            }
             is CardItem.DeutschlandTicketCard -> {
                 val intent = DticketDetailActivity.createIntent(this, card.id)
                 startActivity(intent)
             }
         }
+    }
+
+    private fun showSetDefaultCardDialog(card: CardItem.StudentCard) {
+        activeDialog?.dismiss()
+        activeDialog = AlertDialog.Builder(this)
+            .setTitle(R.string.student_card_make_default_title)
+            .setMessage(getString(R.string.student_card_make_default_message, card.firstName, card.lastName))
+            .setPositiveButton(R.string.student_card_make_default_confirm) { dialog, _ ->
+                studentCardStorage.setDefaultCardId(card.id)
+                Toast.makeText(this, R.string.student_card_make_default_success, Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+                loadCards()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .create()
+        activeDialog?.show()
     }
 
     companion object {
