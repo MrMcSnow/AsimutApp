@@ -1,0 +1,127 @@
+package com.asimut
+
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
+import android.widget.ImageView
+import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
+import androidx.core.view.isVisible
+import com.asimut.data.TicketsRepository
+import com.asimut.models.Dticket
+import com.asimut.util.BarcodeUtil
+import com.google.android.material.button.MaterialButton
+import java.io.File
+
+class DticketDetailActivity : AppCompatActivity() {
+
+    private lateinit var ticketsRepository: TicketsRepository
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_dticket_detail)
+
+        ticketsRepository = TicketsRepository(this)
+
+        val ticketId = intent.getStringExtra(EXTRA_TICKET_ID)
+        val ticket = ticketId?.let { ticketsRepository.getTicketById(it) }
+        if (ticket == null) {
+            Toast.makeText(this, R.string.deutschlandticket_missing, Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
+
+        bindTicket(ticket)
+    }
+
+    private fun bindTicket(ticket: Dticket) {
+        val titleText: TextView = findViewById(R.id.detail_title)
+        val subtitleText: TextView = findViewById(R.id.detail_subtitle)
+        val barcodeImage: ImageView = findViewById(R.id.detail_barcode)
+        val validityText: TextView = findViewById(R.id.detail_validity)
+        val expirationText: TextView = findViewById(R.id.detail_expiration)
+        val holderText: TextView = findViewById(R.id.detail_holder)
+        val openButton: MaterialButton = findViewById(R.id.detail_open_original)
+
+        titleText.text = ticket.title.ifBlank { getString(R.string.deutschlandticket_title_fallback) }
+        subtitleText.isVisible = !ticket.subtitle.isNullOrBlank()
+        subtitleText.text = ticket.subtitle
+
+        val validityParts = mutableListOf<String>()
+        val validFrom = ticket.validFrom
+        val validTo = ticket.validTo
+        if (!validFrom.isNullOrBlank() && !validTo.isNullOrBlank()) {
+            validityParts += getString(R.string.deutschlandticket_validity_range_format, validFrom, validTo)
+        } else if (!validFrom.isNullOrBlank()) {
+            validityParts += getString(R.string.deutschlandticket_valid_from_format, validFrom)
+        } else if (!validTo.isNullOrBlank()) {
+            validityParts += getString(R.string.deutschlandticket_valid_to_format, validTo)
+        }
+        if (validityParts.isNotEmpty()) {
+            validityText.isVisible = true
+            validityText.text = validityParts.joinToString("\n")
+        } else {
+            validityText.isVisible = false
+        }
+
+        if (!ticket.expirationDate.isNullOrBlank()) {
+            expirationText.isVisible = true
+            expirationText.text = getString(R.string.deutschlandticket_expiration_format, ticket.expirationDate)
+        } else {
+            expirationText.isVisible = false
+        }
+
+        if (!ticket.holder.isNullOrBlank()) {
+            holderText.isVisible = true
+            holderText.text = getString(R.string.deutschlandticket_holder_format, ticket.holder)
+        } else {
+            holderText.isVisible = false
+        }
+
+        val barcodeBitmap = BarcodeUtil.generateCode(ticket.barcodeMessage, ticket.barcodeFormat, size = 900)
+        barcodeImage.setImageBitmap(barcodeBitmap)
+
+        openButton.setOnClickListener { openOriginal(ticket) }
+    }
+
+    private fun openOriginal(ticket: Dticket) {
+        val file = File(ticket.pkpassLocalPath)
+        if (!file.exists()) {
+            Toast.makeText(this, R.string.deutschlandticket_file_missing, Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val authority = "${packageName}.fileprovider"
+        val uri: Uri = FileProvider.getUriForFile(this, authority, file)
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, MIME_PKPASS)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        val resolved = intent.resolveActivity(packageManager)
+        if (resolved != null) {
+            startActivity(intent)
+        } else {
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = MIME_PKPASS
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(Intent.createChooser(shareIntent, getString(R.string.deutschlandticket_share_title)))
+        }
+    }
+
+    companion object {
+        private const val EXTRA_TICKET_ID = "extra_ticket_id"
+        private const val MIME_PKPASS = "application/vnd.apple.pkpass"
+
+        fun createIntent(context: Context, ticketId: String): Intent {
+            return Intent(context, DticketDetailActivity::class.java).apply {
+                putExtra(EXTRA_TICKET_ID, ticketId)
+            }
+        }
+    }
+}
