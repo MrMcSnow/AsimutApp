@@ -17,7 +17,7 @@
             android:layout_height="wrap_content"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Headline5"
             android:textStyle="bold"
-            android:textColor="@android:color/black" />
+            android:textColor="?attr/colorOnBackground" />
 
         <TextView
             android:id="@+id/detail_subtitle"
@@ -25,7 +25,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
-            android:textColor="@android:color/darker_gray" />
+            android:textColor="?attr/colorOnSurface" />
 
         <ImageView
             android:id="@+id/detail_barcode"
@@ -42,7 +42,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-            android:textColor="@android:color/black" />
+            android:textColor="?attr/colorOnBackground" />
 
         <TextView
             android:id="@+id/detail_expiration"
@@ -50,7 +50,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-            android:textColor="@android:color/black" />
+            android:textColor="?attr/colorOnBackground" />
 
         <TextView
             android:id="@+id/detail_holder"
@@ -58,7 +58,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-            android:textColor="@android:color/black" />
+            android:textColor="?attr/colorOnBackground" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/detail_open_original"
@@ -67,10 +67,11 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:text="@string/deutschlandticket_open_original"
+            android:textColor="?attr/colorOnPrimary"
             app:icon="@drawable/ic_folder"
             app:iconGravity="textStart"
             app:iconPadding="16dp"
-            app:iconTint="@android:color/white" />
+            app:iconTint="?attr/colorOnPrimary" />
 
     </LinearLayout>
 </ScrollView>
