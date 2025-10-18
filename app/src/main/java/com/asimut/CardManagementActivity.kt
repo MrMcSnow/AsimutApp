@@ -526,7 +526,7 @@ class CardManagementActivity : AppCompatActivity() {
 
     private suspend fun importDeutschlandTicket(uri: Uri): CardItem.DeutschlandTicketCard? = withContext(Dispatchers.IO) {
         runCatching {
-            val passesDir = File(filesDir, PASSES_DIRECTORY).apply { if (!exists()) mkdirs() }
+            val passesDir = File(filesDir, DticketRepository.PASSES_DIRECTORY).apply { if (!exists()) mkdirs() }
             val tempFile = File.createTempFile("import_", ".pkpass", cacheDir)
             try {
                 contentResolver.openInputStream(uri)?.use { input ->
@@ -713,7 +713,6 @@ class CardManagementActivity : AppCompatActivity() {
         private const val MAX_CARDS = 5
         private const val MIME_PKPASS = "application/vnd.apple.pkpass"
         private const val MIME_ZIP = "application/zip"
-        private const val PASSES_DIRECTORY = "passes"
         private const val FAB_ANIMATION_DURATION = 200L
     }
 }

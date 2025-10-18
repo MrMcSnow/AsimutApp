@@ -115,7 +115,7 @@ class DticketDetailActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val EXTRA_TICKET_ID = "extra_ticket_id"
+        const val EXTRA_TICKET_ID = "extra_ticket_id"
         private const val MIME_PKPASS = "application/vnd.apple.pkpass"
 
         fun createIntent(context: Context, ticketId: String): Intent {
