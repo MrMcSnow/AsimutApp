@@ -1,12 +1,7 @@
 package com.asimut
 
 import android.content.Intent
-import android.content.IntentFilter
-import android.content.SharedPreferences
 import android.net.Uri
-import android.nfc.NfcAdapter
-import android.nfc.Tag
-import android.nfc.tech.Ndef
 import android.os.Bundle
 import android.view.View
 import android.widget.EditText
@@ -15,21 +10,27 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import java.io.ByteArrayOutputStream
+import com.asimut.CardAdapter.CardItem
+import com.asimut.data.DeutschlandTicketParser
+import com.asimut.data.DticketRepository
+import com.asimut.data.StudentCardStorage
+import com.asimut.data.TicketsRepository
+import com.asimut.models.Dticket
+import com.asimut.util.BarcodeUtil
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import java.io.File
-import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.io.IOException
-import java.util.UUID
-import java.util.zip.ZipInputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
-import org.json.JSONException
 import org.json.JSONObject
 
 class CardManagementActivity : AppCompatActivity() {
@@ -37,14 +38,15 @@ class CardManagementActivity : AppCompatActivity() {
     private lateinit var addCardFab: FloatingActionButton
     private lateinit var backButton: ImageButton
     private lateinit var cardRecyclerView: RecyclerView
-    private var nfcAdapter: NfcAdapter? = null
-    private lateinit var pendingIntent: PendingIntent
-    private lateinit var intentFiltersArray: Array<IntentFilter>
-    private val nfcTechList: Array<Array<String>> = arrayOf(arrayOf(Ndef::class.java.name))
+
+    private lateinit var studentCardStorage: StudentCardStorage
+    private lateinit var ticketsRepository: TicketsRepository
 
     private val cards = mutableListOf<CardItem>()
     private lateinit var cardAdapter: CardAdapter
-    private lateinit var sharedPreferences: SharedPreferences
+
+    private var isFabHiddenByScroll = false
+    private var activeDialog: AlertDialog? = null
 
     private val pickDeutschlandTicketLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -57,8 +59,8 @@ class CardManagementActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_card_management)
 
-        ticketsRepository = TicketsRepository(this)
         studentCardStorage = StudentCardStorage(this)
+        ticketsRepository = TicketsRepository(this)
 
         backButton = findViewById(R.id.back_button)
         addCardFab = findViewById(R.id.add_card_fab)
@@ -67,11 +69,7 @@ class CardManagementActivity : AppCompatActivity() {
         cardAdapter = CardAdapter(cards, ::handleCardClick)
         cardRecyclerView.layoutManager = LinearLayoutManager(this)
         cardRecyclerView.adapter = cardAdapter
-        val overlap = resources.getDimensionPixelSize(R.dimen.card_stack_overlap)
-        cardRecyclerView.addItemDecoration(CardStackItemDecoration(overlap))
-        cardRecyclerView.clipToPadding = false
-        cardRecyclerView.clipChildren = false
-        cardRecyclerView.itemAnimator?.changeDuration = CARD_ANIMATION_DURATION.toLong()
+        attachSwipeToDelete()
         cardRecyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 if (!addCardFab.isVisible || hasReachedLimit()) return
@@ -83,12 +81,6 @@ class CardManagementActivity : AppCompatActivity() {
             }
         })
 
-        sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        loadCards()
-
-        loadCards()
-        updateFabVisibility()
-
         backButton.setOnClickListener { finish() }
         addCardFab.setOnClickListener {
             if (hasReachedLimit()) {
@@ -97,10 +89,17 @@ class CardManagementActivity : AppCompatActivity() {
                 showCardTypeSelectionSheet()
             }
         }
+
+        loadCards()
+    }
+
+    override fun onDestroy() {
+        activeDialog?.dismiss()
+        super.onDestroy()
     }
 
     private fun attachSwipeToDelete() {
-        val itemTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
+        val callback = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
             override fun onMove(
                 recyclerView: RecyclerView,
                 viewHolder: RecyclerView.ViewHolder,
@@ -113,15 +112,72 @@ class CardManagementActivity : AppCompatActivity() {
                     showDeleteConfirmation(position)
                 }
             }
-        })
-        itemTouchHelper.attachToRecyclerView(cardRecyclerView)
+        }
+        ItemTouchHelper(callback).attachToRecyclerView(cardRecyclerView)
     }
 
     private fun loadCards() {
         cards.clear()
-        studentCardStorage.getCards().mapTo(cards) { CardListItem.Student(it) }
-        ticketsRepository.getAllTickets().mapTo(cards) { CardListItem.Ticket(it) }
+
+        val studentCards = studentCardStorage.getCards()
+        studentCards.mapTo(cards) { card ->
+            CardItem.StudentCard(
+                id = card.id,
+                firstName = card.firstName,
+                lastName = card.lastName,
+                matrikelnummer = card.matrikelnummer,
+                birthDate = card.birthDate
+            )
+        }
+
+        val dtickets = ticketsRepository.getAllTickets()
+        dtickets.mapNotNullTo(cards) { ticket ->
+            createDeutschlandTicketCard(ticket)
+        }
+
         cardAdapter.notifyDataSetChanged()
+        updateFabVisibility()
+    }
+
+    private fun showDeleteConfirmation(position: Int) {
+        val card = cards.getOrNull(position) ?: return
+        AlertDialog.Builder(this)
+            .setTitle(R.string.delete_card_title)
+            .setMessage(R.string.delete_card_message)
+            .setPositiveButton(R.string.delete_yes) { dialog, _ ->
+                deleteCard(card, position)
+                dialog.dismiss()
+            }
+            .setNegativeButton(R.string.delete_no) { dialog, _ ->
+                dialog.dismiss()
+                cardAdapter.notifyItemChanged(position)
+            }
+            .setOnCancelListener { cardAdapter.notifyItemChanged(position) }
+            .show()
+    }
+
+    private fun deleteCard(card: CardItem, position: Int) {
+        when (card) {
+            is CardItem.StudentCard -> {
+                studentCardStorage.deleteCardById(card.id)
+            }
+
+            is CardItem.DeutschlandTicketCard -> {
+                ticketsRepository.deleteTicketById(card.id)
+                runCatching { File(card.storedFilePath).takeIf { it.exists() }?.delete() }
+                if (DticketRepository.getTicketId(this) == card.id) {
+                    val previewPath = DticketRepository.getPreviewPath(this)
+                    if (previewPath != null) {
+                        runCatching { File(previewPath).takeIf { it.exists() }?.delete() }
+                    }
+                    DticketRepository.clear(this)
+                }
+            }
+        }
+
+        cards.removeAt(position)
+        cardAdapter.notifyItemRemoved(position)
+        updateFabVisibility()
     }
 
     private fun updateFabVisibility() {
@@ -130,630 +186,295 @@ class CardManagementActivity : AppCompatActivity() {
 
     private fun hasReachedLimit(): Boolean = cards.size >= MAX_CARDS
 
-        addCardButton.setOnClickListener {
-            if (cards.size >= MAX_CARDS) {
-                Toast.makeText(
-                    this,
-                    getString(R.string.card_limit_reached, MAX_CARDS),
-                    Toast.LENGTH_LONG
-                ).show()
-            } else {
-                showCardTypeSelectionDialog()
-            }
+    private fun hideFabForScroll() {
+        isFabHiddenByScroll = true
+        addCardFab.animate()
+            .translationY(addCardFab.height * 1.5f)
+            .setDuration(FAB_ANIMATION_DURATION)
+            .start()
+    }
+
+    private fun showFabAfterScroll() {
+        isFabHiddenByScroll = false
+        addCardFab.animate()
+            .translationY(0f)
+            .setDuration(FAB_ANIMATION_DURATION)
+            .start()
+    }
+
+    private fun showCardTypeSelectionSheet() {
+        val dialog = BottomSheetDialog(this)
+        val view = layoutInflater.inflate(R.layout.layout_card_type_sheet, null)
+        view.findViewById<MaterialButton>(R.id.sheet_student_option).setOnClickListener {
+            dialog.dismiss()
+            showAddStudentCardDialog()
         }
-    }
-
-        nfcAdapter = NfcAdapter.getDefaultAdapter(this)
-        if (nfcAdapter == null) {
-            Toast.makeText(this, R.string.nfc_not_supported, Toast.LENGTH_LONG).show()
-        }
-
-        val pendingIntentFlags = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            PendingIntent.FLAG_IMMUTABLE
-        } else {
-            0
-        }
-
-        pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, javaClass).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
-            pendingIntentFlags
-        )
-
-        val ndef = IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED).apply {
-            try {
-                addDataType("*/*")
-            } catch (e: IntentFilter.MalformedMimeTypeException) {
-                throw IllegalStateException("Failed to add wildcard MIME type for NFC", e)
-            }
-        }
-        val tagDiscovered = IntentFilter(NfcAdapter.ACTION_TAG_DISCOVERED)
-        intentFiltersArray = arrayOf(ndef, tagDiscovered)
-    }
-
-    override fun onResume() {
-        super.onResume()
-        nfcAdapter?.enableForegroundDispatch(this, pendingIntent, intentFiltersArray, nfcTechList)
-    }
-
-    override fun onPause() {
-        super.onPause()
-        nfcAdapter?.disableForegroundDispatch(this)
-    }
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        if (NfcAdapter.ACTION_TAG_DISCOVERED == intent.action ||
-            NfcAdapter.ACTION_NDEF_DISCOVERED == intent.action
-        ) {
-            val tag: Tag = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag::class.java)
-            } else {
-                @Suppress("DEPRECATION")
-                intent.getParcelableExtra(NfcAdapter.EXTRA_TAG)
-            } ?: return
-
-            val ndef = Ndef.get(tag) ?: return
-            val ndefMessage = ndef.cachedNdefMessage ?: return
-            val payload = ndefMessage.records.firstOrNull()?.payload ?: return
-            val nfcData = payload.decodeToString()
-            saveNfcData(nfcData)
-        }
-
-        dialog.show()
-    }
-
-    private fun showCardTypeSelectionDialog() {
-        val options = arrayOf(
-            getString(R.string.card_type_student),
-            getString(R.string.card_type_deutschland_ticket)
-        )
-
-        AlertDialog.Builder(this)
-            .setTitle(R.string.card_type_prompt)
-            .setItems(options) { dialog, which ->
-                when (which) {
-                    0 -> showAddStudentCardDialog()
-                    1 -> launchDeutschlandTicketPicker()
-                }
-                dialog.dismiss()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
-
-    private fun launchDeutschlandTicketPicker() {
-        pickDeutschlandTicketLauncher.launch(arrayOf("application/vnd.apple.pkpass", "application/zip"))
-    }
-
-    private fun showAddStudentCardDialog() {
-        val builder = AlertDialog.Builder(this)
-        val view = layoutInflater.inflate(R.layout.dialog_add_card, null)
-        builder.setView(view)
-        val dialog = builder.create()
-
-        takePersistablePermission(uri)
-
-        lifecycleScope.launch {
-            val ticket = runCatching { importDeutschlandTicket(uri) }.getOrNull()
-
-            saveStudentCardData(firstName, lastName, matrikelnummer, birthDate)
+        view.findViewById<MaterialButton>(R.id.sheet_ticket_option).setOnClickListener {
             dialog.dismiss()
             launchDeutschlandTicketPicker()
         }
+        dialog.setContentView(view)
+        dialog.show()
     }
 
-    private fun takePersistablePermission(uri: Uri) {
-        try {
-            contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-        } catch (_: SecurityException) {
-            // Ignore if permission cannot be persisted
-        }
-    }
-
-    private suspend fun importDeutschlandTicket(uri: Uri): Dticket? = withContext(Dispatchers.IO) {
-        DocumentFile.fromSingleUri(this@CardManagementActivity, uri) ?: return@withContext null
-        val storageDir = File(filesDir, PASSES_DIRECTORY).apply { if (!exists()) mkdirs() }
-        val tempFile = File.createTempFile("ticket_", ".pkpass", storageDir)
-
-        contentResolver.openInputStream(uri)?.use { input ->
-            FileOutputStream(tempFile).use { output ->
-                input.copyTo(output)
-            }
-        } ?: return@withContext null
-
-        val payload = parseDeutschlandTicket(tempFile) ?: run {
-            tempFile.delete()
-            return@withContext null
+    private fun showAddStudentCardDialog() {
+        if (hasReachedLimit()) {
+            Toast.makeText(this, getString(R.string.card_limit_reached, MAX_CARDS), Toast.LENGTH_LONG).show()
+            return
         }
 
-        val finalFile = File(storageDir, "${payload.id}.pkpass")
-        if (finalFile.exists()) {
-            finalFile.delete()
-        }
+        val dialogView = layoutInflater.inflate(R.layout.dialog_add_card, null)
+        val firstNameInput: EditText = dialogView.findViewById(R.id.first_name_edit_text)
+        val lastNameInput: EditText = dialogView.findViewById(R.id.last_name_edit_text)
+        val matrikelnummerInput: EditText = dialogView.findViewById(R.id.matrikelnummer_edit_text)
+        val birthDateInput: EditText = dialogView.findViewById(R.id.birth_date_edit_text)
 
-        try {
-            FileInputStream(tempFile).use { input ->
-                FileOutputStream(finalFile).use { output ->
-                    input.copyTo(output)
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.card_type_student)
+            .setView(dialogView)
+            .setPositiveButton(android.R.string.ok, null)
+            .setNegativeButton(android.R.string.cancel, null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { buttonView: View ->
+                val firstName = firstNameInput.text.toString().trim()
+                val lastName = lastNameInput.text.toString().trim()
+                val matrikelnummer = matrikelnummerInput.text.toString().trim()
+                val birthDate = birthDateInput.text.toString().trim()
+
+                if (firstName.isBlank() || lastName.isBlank() || matrikelnummer.isBlank() || birthDate.isBlank()) {
+                    Toast.makeText(
+                        buttonView.context,
+                        R.string.student_card_validation_error,
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@setOnClickListener
                 }
+
+                saveStudentCardData(firstName, lastName, matrikelnummer, birthDate)
+                dialog.dismiss()
             }
-        } finally {
-            tempFile.delete()
         }
 
-        return@withContext payload.toTicket(finalFile.absolutePath)
+        activeDialog = dialog
+        dialog.show()
     }
 
-    private fun saveStudentCardData(
-        firstName: String,
-        lastName: String,
-        matrikelnummer: String,
-        birthDate: String
-    ) {
-        val card = CardItem.StudentCard(firstName, lastName, matrikelnummer, birthDate)
-        cards.add(card)
+    private fun saveStudentCardData(firstName: String, lastName: String, matrikelnummer: String, birthDate: String) {
+        if (hasReachedLimit()) {
+            Toast.makeText(this, getString(R.string.card_limit_reached, MAX_CARDS), Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val card = studentCardStorage.createCard(firstName, lastName, matrikelnummer, birthDate)
+        studentCardStorage.addCard(card)
+        cards.add(
+            CardItem.StudentCard(
+                id = card.id,
+                firstName = card.firstName,
+                lastName = card.lastName,
+                matrikelnummer = card.matrikelnummer,
+                birthDate = card.birthDate
+            )
+        )
         cardAdapter.notifyItemInserted(cards.lastIndex)
-        persistCards()
+        updateFabVisibility()
         Toast.makeText(this, R.string.student_card_saved, Toast.LENGTH_SHORT).show()
     }
 
-    private fun showDeleteCardDialog(card: CardItem) {
-        val builder = AlertDialog.Builder(this)
-        builder.setTitle(R.string.delete_card_title)
-        builder.setMessage(R.string.delete_card_message)
-        builder.setPositiveButton(R.string.delete_yes) { dialog, _ ->
-            deleteCardData(card)
-            dialog.dismiss()
-        }
-        builder.setNegativeButton(R.string.delete_no) { dialog, _ ->
-            dialog.dismiss()
-        }
-    }
-
-    private fun deleteCardData(card: CardItem) {
-        val position = cards.indexOf(card)
-        if (position != -1) {
-            cards.removeAt(position)
-            cardAdapter.notifyItemRemoved(position)
-            if (card is CardItem.DeutschlandTicketCard) {
-                runCatching { File(card.storedFilePath).takeIf { it.exists() }?.delete() }
-            }
-            persistCards()
-        }
-    }
-
-    private fun loadCards() {
-        val serializedCards = sharedPreferences.getString(KEY_CARD_ITEMS, null)
-        if (serializedCards.isNullOrBlank()) {
-            migrateLegacyCardsIfPresent()
-            return
-        }
-
-        try {
-            val jsonArray = JSONArray(serializedCards)
-            if (jsonArray.length() == 0) return
-            val loadedCards = mutableListOf<CardItem>()
-            var missingPassFiles = false
-            for (i in 0 until jsonArray.length()) {
-                val jsonObject = jsonArray.getJSONObject(i)
-                when (jsonObject.getString(JSON_TYPE_KEY)) {
-                    JSON_TYPE_STUDENT -> {
-                        val studentCard = CardItem.StudentCard(
-                            firstName = jsonObject.optString(JSON_FIRST_NAME),
-                            lastName = jsonObject.optString(JSON_LAST_NAME),
-                            matrikelnummer = jsonObject.optString(JSON_MATRIKELNUMMER),
-                            birthDate = jsonObject.optString(JSON_BIRTH_DATE)
-                        )
-                        loadedCards.add(studentCard)
-                    }
-
-                    JSON_TYPE_DEUTSCHLANDTICKET -> {
-                        val storedPath = jsonObject.optString(JSON_STORED_FILE_PATH)
-                        val storedFile = if (storedPath.isNullOrEmpty()) null else File(storedPath)
-                        if (storedFile != null && storedFile.exists()) {
-                            val card = CardItem.DeutschlandTicketCard(
-                                title = jsonObject.optString(JSON_TITLE),
-                                logoText = jsonObject.optString(JSON_LOGO_TEXT),
-                                holderName = jsonObject.optString(JSON_HOLDER_NAME),
-                                ticketNumber = jsonObject.optString(JSON_TICKET_NUMBER),
-                                birthDate = jsonObject.optString(JSON_BIRTH_DATE),
-                                validity = jsonObject.optString(JSON_VALIDITY),
-                                status = jsonObject.optString(JSON_STATUS),
-                                provider = jsonObject.optString(JSON_PROVIDER),
-                                customerNumber = jsonObject.optString(JSON_CUSTOMER_NUMBER),
-                                expirationDate = jsonObject.optString(JSON_EXPIRATION_DATE),
-                                qrMessage = jsonObject.optString(JSON_QR_MESSAGE),
-                                qrAltText = jsonObject.optString(JSON_QR_ALT_TEXT),
-                                backgroundColor = jsonObject.optString(JSON_BACKGROUND_COLOR),
-                                foregroundColor = jsonObject.optString(JSON_FOREGROUND_COLOR),
-                                labelColor = jsonObject.optString(JSON_LABEL_COLOR),
-                                serialNumber = jsonObject.optString(JSON_SERIAL_NUMBER),
-                                storedFilePath = storedPath
-                            )
-                            loadedCards.add(card)
-                        } else {
-                            missingPassFiles = true
-                        }
-                    }
-                }
-            }
-
-            if (loadedCards.isNotEmpty()) {
-                cards.addAll(loadedCards)
-                cardAdapter.notifyItemRangeInserted(0, loadedCards.size)
-            }
-            if (missingPassFiles) {
-                Toast.makeText(this, R.string.deutschlandticket_file_missing, Toast.LENGTH_LONG).show()
-            }
-        } catch (exception: JSONException) {
-            Toast.makeText(this, R.string.deutschlandticket_import_failed, Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun migrateLegacyCardsIfPresent() {
-        val allEntries = sharedPreferences.all
-        if (allEntries.isEmpty()) return
-
-        val legacyCards = mutableListOf<CardItem.StudentCard>()
-        for ((key, value) in allEntries) {
-            if (!key.startsWith(LEGACY_CARD_PREFIX)) continue
-            val values = (value as? Set<*>)?.mapNotNull { it as? String } ?: continue
-            if (values.isEmpty()) continue
-
-            val matrikelnummer = values.firstOrNull { it.matches(MATRIKEL_REGEX) } ?: ""
-            val birthDate = values.firstOrNull { it.matches(BIRTHDATE_REGEX) } ?: ""
-            val remainingNames = values.filter { it != matrikelnummer && it != birthDate }
-            val firstName = remainingNames.firstOrNull() ?: ""
-            val lastName = remainingNames.drop(1).firstOrNull() ?: ""
-
-            legacyCards.add(
-                CardItem.StudentCard(
-                    firstName = firstName,
-                    lastName = lastName,
-                    matrikelnummer = matrikelnummer,
-                    birthDate = birthDate
-                )
-            )
-        }
-
-        if (legacyCards.isNotEmpty()) {
-            cards.addAll(legacyCards)
-            cardAdapter.notifyItemRangeInserted(0, legacyCards.size)
-            persistCards()
-            val editor = sharedPreferences.edit()
-            for (card in legacyCards) {
-                editor.remove("$LEGACY_CARD_PREFIX${card.matrikelnummer}")
-            }
-            editor.apply()
-        }
-        return "PKBarcodeFormatAztec"
-    }
-
-    private fun JSONObject.findFieldValue(keys: List<String>, labels: List<String>): String? {
-        val generic = optJSONObject("generic") ?: return null
-        val arrays = listOf(
-            generic.optJSONArray("primaryFields"),
-            generic.optJSONArray("secondaryFields"),
-            generic.optJSONArray("auxiliaryFields"),
-            generic.optJSONArray("backFields"),
-            generic.optJSONArray("additionalInfoFields")
-        )
-        arrays.forEach { array ->
-            array?.let {
-                for (index in 0 until it.length()) {
-                    val obj = it.optJSONObject(index) ?: continue
-                    val key = obj.optString("key").lowercase(Locale.getDefault())
-                    val label = obj.optString("label").lowercase(Locale.getDefault())
-                    val value = obj.optString("value")
-                    if (value.isNullOrBlank()) continue
-                    if (keys.any { keyCandidate -> key == keyCandidate.lowercase(Locale.getDefault()) }) {
-                        return value
-                    }
-                    if (labels.any { labelCandidate -> label.contains(labelCandidate.lowercase(Locale.getDefault())) }) {
-                        return value
-                    }
-                }
-            }
-        }
-        return null
-    }
-
-    private fun parseValidityRange(value: String?): Pair<String?, String?> {
-        if (value.isNullOrBlank()) return null to null
-        val separators = listOf("-", "–", "—")
-        separators.forEach { separator ->
-            if (value.contains(separator)) {
-                val parts = value.split(separator)
-                if (parts.size >= 2) {
-                    return parts[0].trim() to parts[1].trim()
-                }
-            }
-        }
-        return value.trim() to null
-    }
-
-    private fun formatDate(raw: String?): String? {
-        if (raw.isNullOrBlank()) return null
-        val trimmed = raw.trim()
-        DATE_PATTERNS.forEach { pattern ->
-            try {
-                val parser = SimpleDateFormat(pattern, Locale.getDefault())
-                parser.isLenient = true
-                val date = parser.parse(trimmed) ?: return@forEach
-                return SimpleDateFormat(OUTPUT_DATE_PATTERN, Locale.getDefault()).format(date)
-            } catch (_: ParseException) {
-                // try next pattern
-            }
-        }
-        return trimmed
-    }
-
-    private data class TicketPayload(
-        val id: String,
-        val title: String,
-        val subtitle: String?,
-        val barcodeMessage: String,
-        val barcodeFormat: String,
-        val validFrom: String?,
-        val validTo: String?,
-        val expirationDate: String?,
-        val holder: String?
-    ) {
-        fun toTicket(path: String) = Dticket(
-            id = id,
-            title = title,
-            subtitle = subtitle,
-            barcodeMessage = barcodeMessage,
-            barcodeFormat = barcodeFormat,
-            validFrom = validFrom,
-            validTo = validTo,
-            expirationDate = expirationDate,
-            holder = holder,
-            pkpassLocalPath = path
-        )
-    }
-
-    companion object {
-        private const val MAX_CARDS = 5
-        private const val PASSES_DIRECTORY = "dtickets"
-        private const val BUFFER_SIZE = 4096
-        private val DATE_PATTERNS = listOf(
-            "yyyy-MM-dd'T'HH:mm:ssXXX",
-            "yyyy-MM-dd'T'HH:mm:ss'Z'",
-            "yyyy-MM-dd'T'HH:mmXXX",
-            "yyyy-MM-dd",
-            "dd.MM.yyyy",
-            "dd.MM.yy"
-        )
-        private const val OUTPUT_DATE_PATTERN = "dd.MM.yyyy"
-    }
-
-    private fun persistCards() {
-        val jsonArray = JSONArray()
-        cards.forEach { card ->
-            val jsonObject = JSONObject()
-            when (card) {
-                is CardItem.StudentCard -> {
-                    jsonObject.put(JSON_TYPE_KEY, JSON_TYPE_STUDENT)
-                    jsonObject.put(JSON_FIRST_NAME, card.firstName)
-                    jsonObject.put(JSON_LAST_NAME, card.lastName)
-                    jsonObject.put(JSON_MATRIKELNUMMER, card.matrikelnummer)
-                    jsonObject.put(JSON_BIRTH_DATE, card.birthDate)
-                }
-
-                is CardItem.DeutschlandTicketCard -> {
-                    jsonObject.put(JSON_TYPE_KEY, JSON_TYPE_DEUTSCHLANDTICKET)
-                    jsonObject.put(JSON_TITLE, card.title)
-                    jsonObject.put(JSON_LOGO_TEXT, card.logoText)
-                    jsonObject.put(JSON_HOLDER_NAME, card.holderName)
-                    jsonObject.put(JSON_TICKET_NUMBER, card.ticketNumber)
-                    jsonObject.put(JSON_BIRTH_DATE, card.birthDate)
-                    jsonObject.put(JSON_VALIDITY, card.validity)
-                    jsonObject.put(JSON_STATUS, card.status)
-                    jsonObject.put(JSON_PROVIDER, card.provider)
-                    jsonObject.put(JSON_CUSTOMER_NUMBER, card.customerNumber)
-                    jsonObject.put(JSON_EXPIRATION_DATE, card.expirationDate)
-                    jsonObject.put(JSON_QR_MESSAGE, card.qrMessage)
-                    jsonObject.put(JSON_QR_ALT_TEXT, card.qrAltText)
-                    jsonObject.put(JSON_BACKGROUND_COLOR, card.backgroundColor)
-                    jsonObject.put(JSON_FOREGROUND_COLOR, card.foregroundColor)
-                    jsonObject.put(JSON_LABEL_COLOR, card.labelColor)
-                    jsonObject.put(JSON_SERIAL_NUMBER, card.serialNumber)
-                    jsonObject.put(JSON_STORED_FILE_PATH, card.storedFilePath)
-                }
-            }
-            jsonArray.put(jsonObject)
-        }
-
-        sharedPreferences.edit().putString(KEY_CARD_ITEMS, jsonArray.toString()).apply()
+    private fun launchDeutschlandTicketPicker() {
+        pickDeutschlandTicketLauncher.launch(arrayOf(MIME_PKPASS, MIME_ZIP))
     }
 
     private fun handleDeutschlandTicketSelection(uri: Uri) {
-        if (cards.size >= MAX_CARDS) {
-            Toast.makeText(
-                this,
-                getString(R.string.card_limit_reached, MAX_CARDS),
-                Toast.LENGTH_LONG
-            ).show()
+        if (hasReachedLimit()) {
+            Toast.makeText(this, getString(R.string.card_limit_reached, MAX_CARDS), Toast.LENGTH_LONG).show()
             return
         }
 
+        takePersistablePermission(uri)
         lifecycleScope.launch {
-            val card = withContext(Dispatchers.IO) {
-                try {
-                    importDeutschlandTicket(uri)
-                } catch (exception: Exception) {
-                    null
-                }
-            }
-
-            if (card == null) {
+            val result = importDeutschlandTicket(uri)
+            if (result == null) {
                 Toast.makeText(this@CardManagementActivity, R.string.deutschlandticket_import_failed, Toast.LENGTH_LONG)
                     .show()
             } else {
-                cards.add(card)
-                cardAdapter.notifyItemInserted(cards.lastIndex)
-                persistCards()
+                loadCards()
                 Toast.makeText(this@CardManagementActivity, R.string.deutschlandticket_import_success, Toast.LENGTH_LONG)
                     .show()
             }
         }
     }
 
-    @Throws(IOException::class, JSONException::class)
-    private fun importDeutschlandTicket(uri: Uri): CardItem.DeutschlandTicketCard? {
-        val resolver = contentResolver
-        val storageDir = File(filesDir, PASSES_DIRECTORY).apply { if (!exists()) mkdirs() }
-        val tempFile = File.createTempFile("pass_", ".pkpass", storageDir)
+    private suspend fun importDeutschlandTicket(uri: Uri): CardItem.DeutschlandTicketCard? = withContext(Dispatchers.IO) {
+        runCatching {
+            val passesDir = File(filesDir, PASSES_DIRECTORY).apply { if (!exists()) mkdirs() }
+            val tempFile = File.createTempFile("import_", ".pkpass", cacheDir)
+            try {
+                contentResolver.openInputStream(uri)?.use { input ->
+                    FileOutputStream(tempFile).use { output ->
+                        input.copyTo(output)
+                    }
+                } ?: throw IllegalStateException("Unable to read pkpass")
 
-        resolver.openInputStream(uri)?.use { input ->
-            FileOutputStream(tempFile).use { output ->
-                input.copyTo(output)
-            }
-        } ?: return null
+                val parserResult = DeutschlandTicketParser.parse(tempFile)
+                    ?: throw IllegalStateException("Unable to parse pkpass")
 
-        val parsedCard = parseDeutschlandTicket(tempFile) ?: run {
-            tempFile.delete()
-            return null
-        }
-
-        val safeSerial = parsedCard.serialNumber.ifBlank { UUID.randomUUID().toString() }
-        val finalFile = File(storageDir, "$safeSerial.pkpass")
-        if (finalFile.exists()) {
-            finalFile.delete()
-        }
-        try {
-            FileInputStream(tempFile).use { input ->
+                val payload = parserResult.payload
+                val finalFile = File(passesDir, "${payload.id}.pkpass")
                 FileOutputStream(finalFile).use { output ->
-                    input.copyTo(output)
+                    tempFile.inputStream().use { input ->
+                        input.copyTo(output)
+                    }
                 }
-            }
-        } finally {
-            tempFile.delete()
-        }
 
-        return parsedCard.copy(storedFilePath = finalFile.absolutePath)
+                val ticket = payload.toTicket(finalFile.absolutePath)
+
+                val existingTickets = ticketsRepository.getAllTickets()
+                existingTickets.forEach { existing ->
+                    ticketsRepository.deleteTicketById(existing.id)
+                    runCatching { File(existing.pkpassLocalPath).takeIf { it.exists() }?.delete() }
+                }
+
+                val added = ticketsRepository.addTicket(ticket)
+                if (!added) {
+                    throw IllegalStateException("Ticket limit reached")
+                }
+
+                val previewBitmap = BarcodeUtil.generateCode(payload.barcodeMessage, payload.barcodeFormat, size = 900)
+                val previewPath = DticketRepository.savePreviewBitmap(this@CardManagementActivity, previewBitmap)
+
+                DticketRepository.savePassData(
+                    context = this@CardManagementActivity,
+                    ticketId = ticket.id,
+                    passJson = parserResult.jsonString,
+                    pkpassPath = finalFile.absolutePath,
+                    previewPath = previewPath
+                )
+
+                createDeutschlandTicketCard(ticket, parserResult.json)
+            } finally {
+                tempFile.delete()
+            }
+        }.getOrNull()
     }
 
-    private fun parseDeutschlandTicket(passFile: File): CardItem.DeutschlandTicketCard? {
-        var passJson: String? = null
+    private fun createDeutschlandTicketCard(ticket: Dticket): CardItem.DeutschlandTicketCard? {
+        val passJson = DticketRepository.getPassJson(this)
+        return createDeutschlandTicketCard(ticket, passJson)
+    }
 
-        ZipInputStream(FileInputStream(passFile)).use { zipStream ->
-            var entry = zipStream.nextEntry
-            while (entry != null) {
-                if (!entry.isDirectory && entry.name.equals("pass.json", ignoreCase = true)) {
-                    val outputStream = ByteArrayOutputStream()
-                    val buffer = ByteArray(BUFFER_SIZE)
-                    var count: Int
-                    while (zipStream.read(buffer).also { count = it } != -1) {
-                        outputStream.write(buffer, 0, count)
-                    }
-                    passJson = outputStream.toString(Charsets.UTF_8.name())
-                    outputStream.close()
-                    zipStream.closeEntry()
-                    break
-                }
-                entry = zipStream.nextEntry
-            }
-        }
+    private fun createDeutschlandTicketCard(ticket: Dticket, passJson: JSONObject?): CardItem.DeutschlandTicketCard? {
+        val logoText = passJson?.optString("logoText").takeIf { !it.isNullOrBlank() }
+        val backgroundColor = passJson?.optString("backgroundColor").takeIf { !it.isNullOrBlank() }
+        val foregroundColor = passJson?.optString("foregroundColor").takeIf { !it.isNullOrBlank() }
+        val labelColor = passJson?.optString("labelColor").takeIf { !it.isNullOrBlank() }
 
-        val jsonString = passJson ?: return null
-        val jsonObject = JSONObject(jsonString)
+        val barcodeObject = passJson?.optJSONObject("barcode")
+        val barcodesArray = passJson?.optJSONArray("barcodes")
+        val qrAltText = barcodeObject?.optString("altText").takeIf { !it.isNullOrBlank() }
+            ?: barcodesArray?.firstNonBlank("altText")
 
-        val serialNumber = jsonObject.optString("serialNumber")
-        val barcodeObject = jsonObject.optJSONObject("barcode")
-        val barcodesArray = jsonObject.optJSONArray("barcodes")
-        val qrMessage = barcodeObject?.optString("message")
-            ?: barcodesArray?.optJSONObject(0)?.optString("message")
-        val qrAltText = barcodeObject?.optString("altText")
-            ?: barcodesArray?.optJSONObject(0)?.optString("altText")
-
-        val generic = jsonObject.optJSONObject("generic")
-        val primaryFields = generic?.optJSONArray("primaryFields")
+        val generic = passJson?.optJSONObject("generic")
         val secondaryFields = generic?.optJSONArray("secondaryFields")
         val auxiliaryFields = generic?.optJSONArray("auxiliaryFields")
 
-        val title = primaryFields?.findFieldValue("h1") ?: primaryFields?.optJSONObject(0)?.optString("label")
-            ?: jsonObject.optString("organizationName")
-        val logoText = jsonObject.optString("logoText")
-        val holderName = secondaryFields?.findFieldValue("b1")
-        val ticketNumber = secondaryFields?.findFieldValue("b2")
-        val birthDate = secondaryFields?.findFieldValue("b3")
-        val validity = secondaryFields?.findFieldValue("b4")
-        val status = auxiliaryFields?.findFieldValue("a1")
-        val provider = auxiliaryFields?.findFieldValue("a2")
-        val customerNumber = auxiliaryFields?.findFieldValue("a3")
-        val expirationDate = jsonObject.optString("expirationDate")
+        val ticketNumber = secondaryFields?.findFieldValue(listOf("b2"), listOf("ticket", "nummer"))
+        val birthDate = secondaryFields?.findFieldValue(listOf("b3"), listOf("birth", "geburt"))
+        val validityField = secondaryFields?.findFieldValue(listOf("b4"), listOf("gültig", "valid"))
+
+        val status = auxiliaryFields?.findFieldValue(listOf("a1"), listOf("status"))
+        val provider = auxiliaryFields?.findFieldValue(listOf("a2"), listOf("anbieter", "provider"))
+        val customerNumber = auxiliaryFields?.findFieldValue(listOf("a3"), listOf("kund", "customer"))
+
+        val validityText = validityField ?: buildValidityString(ticket.validFrom, ticket.validTo)
 
         return CardItem.DeutschlandTicketCard(
-            title = title ?: "",
+            id = ticket.id,
+            title = ticket.title,
             logoText = logoText,
-            holderName = holderName,
+            holderName = ticket.holder,
             ticketNumber = ticketNumber,
             birthDate = birthDate,
-            validity = validity,
+            validity = validityText,
             status = status,
             provider = provider,
             customerNumber = customerNumber,
-            expirationDate = expirationDate,
-            qrMessage = qrMessage,
+            expirationDate = ticket.expirationDate,
+            qrMessage = ticket.barcodeMessage,
+            qrFormat = ticket.barcodeFormat,
             qrAltText = qrAltText,
-            backgroundColor = jsonObject.optString("backgroundColor"),
-            foregroundColor = jsonObject.optString("foregroundColor"),
-            labelColor = jsonObject.optString("labelColor"),
-            serialNumber = serialNumber,
-            storedFilePath = passFile.absolutePath
+            backgroundColor = backgroundColor,
+            foregroundColor = foregroundColor,
+            labelColor = labelColor,
+            storedFilePath = ticket.pkpassLocalPath
         )
     }
 
-    private fun JSONArray.findFieldValue(key: String): String? {
+    private fun buildValidityString(validFrom: String?, validTo: String?): String? {
+        return when {
+            !validFrom.isNullOrBlank() && !validTo.isNullOrBlank() ->
+                getString(R.string.deutschlandticket_validity_range_format, validFrom, validTo)
+
+            !validFrom.isNullOrBlank() ->
+                getString(R.string.deutschlandticket_valid_from_format, validFrom)
+
+            !validTo.isNullOrBlank() ->
+                getString(R.string.deutschlandticket_valid_to_format, validTo)
+
+            else -> null
+        }
+    }
+
+    private fun JSONArray.firstNonBlank(key: String): String? {
+        for (index in 0 until length()) {
+            val candidate = optJSONObject(index)?.optString(key)
+            if (!candidate.isNullOrBlank()) return candidate
+        }
+        return null
+    }
+
+    private fun JSONArray.findFieldValue(keys: List<String>, labels: List<String>): String? {
         for (index in 0 until length()) {
             val field = optJSONObject(index) ?: continue
-            if (field.optString("key") == key) {
-                return field.optString("value")
+            val key = field.optString("key").orEmpty().lowercase()
+            val label = field.optString("label").orEmpty().lowercase()
+            val value = field.optString("value")
+            if (value.isNullOrBlank()) continue
+            if (keys.any { candidate -> key == candidate.lowercase() }) {
+                return value
+            }
+            if (labels.any { candidate -> label.contains(candidate.lowercase()) }) {
+                return value
             }
         }
         return null
     }
 
+    private fun takePersistablePermission(uri: Uri) {
+        try {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (_: SecurityException) {
+            // ignore
+        }
+    }
+
+    private fun handleCardClick(card: CardItem) {
+        when (card) {
+            is CardItem.StudentCard -> Unit
+            is CardItem.DeutschlandTicketCard -> {
+                val intent = DticketDetailActivity.createIntent(this, card.id)
+                startActivity(intent)
+            }
+        }
+    }
+
     companion object {
-        private const val PREFS_NAME = "cards"
-        private const val KEY_CARD_ITEMS = "card_items"
-        private const val PASSES_DIRECTORY = "passes"
         private const val MAX_CARDS = 5
-        private const val LEGACY_CARD_PREFIX = "card_"
-        private const val BUFFER_SIZE = 4096
-
-        private const val JSON_TYPE_KEY = "type"
-        private const val JSON_TYPE_STUDENT = "student"
-        private const val JSON_TYPE_DEUTSCHLANDTICKET = "deutschlandticket"
-        private const val JSON_FIRST_NAME = "firstName"
-        private const val JSON_LAST_NAME = "lastName"
-        private const val JSON_MATRIKELNUMMER = "matrikelnummer"
-        private const val JSON_BIRTH_DATE = "birthDate"
-        private const val JSON_TITLE = "title"
-        private const val JSON_LOGO_TEXT = "logoText"
-        private const val JSON_HOLDER_NAME = "holderName"
-        private const val JSON_TICKET_NUMBER = "ticketNumber"
-        private const val JSON_VALIDITY = "validity"
-        private const val JSON_STATUS = "status"
-        private const val JSON_PROVIDER = "provider"
-        private const val JSON_CUSTOMER_NUMBER = "customerNumber"
-        private const val JSON_EXPIRATION_DATE = "expirationDate"
-        private const val JSON_QR_MESSAGE = "qrMessage"
-        private const val JSON_QR_ALT_TEXT = "qrAltText"
-        private const val JSON_BACKGROUND_COLOR = "backgroundColor"
-        private const val JSON_FOREGROUND_COLOR = "foregroundColor"
-        private const val JSON_LABEL_COLOR = "labelColor"
-        private const val JSON_SERIAL_NUMBER = "serialNumber"
-        private const val JSON_STORED_FILE_PATH = "storedFilePath"
-
-        private val MATRIKEL_REGEX = Regex("^[0-9]{4,}")
-        private val BIRTHDATE_REGEX = Regex("\\d{2}\\.\\d{2}\\.\\d{4}")
+        private const val MIME_PKPASS = "application/vnd.apple.pkpass"
+        private const val MIME_ZIP = "application/zip"
+        private const val PASSES_DIRECTORY = "passes"
+        private const val FAB_ANIMATION_DURATION = 200L
     }
 }
