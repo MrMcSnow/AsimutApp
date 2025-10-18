@@ -6,9 +6,8 @@ The following versions of **AsimutApp** are currently supported with security an
 
 | Version | Supported          |
 | -------- | ------------------ |
-| 1.1.x    | :white_check_mark: |
-| 1.0.x    | :white_check_mark: |
-| < 1.0    | :x:                |
+| 1.3.x    | :white_check_mark: |
+| < 1.2    | :x:                |
 
 Older versions are no longer maintained. Please always update to the latest release to ensure compatibility and security.
 
