@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
 import com.asimut.util.BarcodeUtil
+import com.asimut.util.StudentCardRenderer
 import com.google.android.material.card.MaterialCardView
 
 class CardAdapter(
@@ -84,18 +85,19 @@ class CardAdapter(
 
     private inner class StudentCardViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val cardView: MaterialCardView = itemView as MaterialCardView
-        private val firstNameTextView: TextView = itemView.findViewById(R.id.card_first_name)
-        private val lastNameTextView: TextView = itemView.findViewById(R.id.card_last_name)
-        private val matrikelnummerTextView: TextView = itemView.findViewById(R.id.card_matrikelnummer)
-        private val birthDateTextView: TextView = itemView.findViewById(R.id.card_birth_date)
-        private val defaultBadgeTextView: TextView = itemView.findViewById(R.id.card_payment_badge)
-        private val nfcStatusTextView: TextView = itemView.findViewById(R.id.card_nfc_status)
+        private val cardImageView: ImageView = itemView.findViewById(R.id.card_image)
+        private val renderer = StudentCardRenderer(itemView.context)
 
         fun bind(card: CardItem.StudentCard) {
-            firstNameTextView.text = card.firstName
-            lastNameTextView.text = card.lastName
-            matrikelnummerTextView.text = card.matrikelnummer
-            birthDateTextView.text = card.birthDate
+            val renderedBitmap = renderer.render(
+                firstName = card.firstName,
+                lastName = card.lastName,
+                matrikelnummer = card.matrikelnummer,
+                birthDate = card.birthDate,
+                showDefaultBadge = card.isDefaultPayment,
+                showNfcBadge = card.isNfcConfigured
+            )
+            cardImageView.setImageBitmap(renderedBitmap)
 
             val context = itemView.context
             val strokeWidth =
@@ -103,9 +105,6 @@ class CardAdapter(
                 else 0
             cardView.strokeWidth = strokeWidth
             cardView.strokeColor = ContextCompat.getColor(context, R.color.student_card_default_stroke)
-
-            defaultBadgeTextView.isVisible = card.isDefaultPayment
-            nfcStatusTextView.isVisible = card.isNfcConfigured
 
             itemView.setOnClickListener { onItemClick(card) }
         }
