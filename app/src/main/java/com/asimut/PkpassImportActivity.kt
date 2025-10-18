@@ -53,7 +53,7 @@ class PkpassImportActivity : AppCompatActivity() {
 
     private suspend fun importPkpass(uri: Uri): String? = withContext(Dispatchers.IO) {
         runCatching {
-            val passesDir = File(filesDir, PASSES_DIRECTORY).apply { if (!exists()) mkdirs() }
+            val passesDir = File(filesDir, DticketRepository.PASSES_DIRECTORY).apply { if (!exists()) mkdirs() }
             val tempFile = File.createTempFile("import_", ".pkpass", cacheDir)
             try {
                 contentResolver.openInputStream(uri)?.use { input ->
@@ -143,7 +143,6 @@ class PkpassImportActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val PASSES_DIRECTORY = "passes"
         private const val FINAL_PKPASS_NAME = "deutschlandticket.pkpass"
     }
 }
