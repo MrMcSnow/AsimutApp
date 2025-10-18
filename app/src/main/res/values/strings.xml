@@ -5,6 +5,8 @@
     <string name="card_type_student">Studierendenausweis</string>
     <string name="card_type_deutschland_ticket">Deutschlandticket</string>
     <string name="card_type_prompt">Welche Karte möchtest du hinzufügen?</string>
+    <string name="card_management_back">Zurück</string>
+    <string name="add_card_fab_content_description">Neue Karte hinzufügen</string>
     <string name="card_limit_reached">Du kannst maximal %1$d Karten speichern.</string>
     <string name="student_card_saved">Studierendenausweis gespeichert.</string>
     <string name="delete_card_title">Karte entfernen</string>
@@ -24,4 +26,13 @@
     <string name="deutschlandticket_customer_number_format">Kundennummer: %1$s</string>
     <string name="deutschlandticket_expiration_format">Ablaufdatum: %1$s</string>
     <string name="deutschlandticket_alt_text_format">Alt-Text: %1$s</string>
+    <string name="deutschlandticket_validity_range_format">Gültig: %1$s – %2$s</string>
+    <string name="deutschlandticket_valid_from_format">Gültig ab: %1$s</string>
+    <string name="deutschlandticket_valid_to_format">Gültig bis: %1$s</string>
+    <string name="deutschlandticket_barcode_description">Code des Deutschlandtickets</string>
+    <string name="deutschlandticket_share_title">Deutschlandticket teilen</string>
+    <string name="deutschlandticket_import_error">Ticket konnte nicht importiert werden.</string>
+    <string name="deutschlandticket_update_success">Ticket wurde aktualisiert.</string>
+    <string name="deutschlandticket_missing">Ticket nicht gefunden.</string>
+    <string name="student_card_validation_error">Bitte alle Felder ausfüllen.</string>
 </resources>

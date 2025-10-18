@@ -77,6 +77,14 @@ object DticketRepository {
         return Uri.fromFile(file)
     }
 
+    fun clear(context: Context) {
+        val previewPath = getPreviewPath(context)
+        if (previewPath != null) {
+            runCatching { File(previewPath).takeIf { it.exists() }?.delete() }
+        }
+        preferences(context).edit().clear().apply()
+    }
+
     private const val PASSES_DIR = "passes"
     private const val PREVIEW_FILE_NAME = "deutschlandticket.png"
 }
