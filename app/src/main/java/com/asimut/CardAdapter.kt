@@ -98,6 +98,17 @@ class CardAdapter(
             lastNameTextView.text = card.lastName
             matrikelnummerTextView.text = card.matrikelnummer
             birthDateTextView.text = card.birthDate
+        }
+    }
+
+    private inner class DticketViewHolder(itemView: View) : BaseCardViewHolder(itemView) {
+        private val titleText: TextView = itemView.findViewById(R.id.text_title)
+        private val subtitleText: TextView = itemView.findViewById(R.id.text_subtitle)
+        private val barcodeImage: ImageView = itemView.findViewById(R.id.image_barcode)
+        private val expirationText: TextView = itemView.findViewById(R.id.text_expiration)
+        private val altText: TextView = itemView.findViewById(R.id.text_alt)
+        private val expandedSection: LinearLayout = itemView.findViewById(R.id.expanded_section)
+        private val actionOpen: View = itemView.findViewById(R.id.button_open_fullscreen)
 
             itemView.setOnClickListener { onCardClick(CardListItem.Student(card)) }
         }
@@ -226,6 +237,28 @@ class CardAdapter(
                 onDeleteClick(card)
                 true
             }
+
+            if (validityParts.isNotEmpty()) {
+                expirationText.isVisible = true
+                expirationText.text = validityParts.joinToString(separator = "\n")
+            } else {
+                expirationText.isVisible = false
+                expirationText.text = ""
+            }
+
+            altText.text = ticket.holder?.let { context.getString(R.string.deutschlandticket_holder_format, it) } ?: ""
+            altText.isVisible = !ticket.holder.isNullOrBlank()
+
+            val bitmap = BarcodeUtil.generateCode(ticket.barcodeMessage, ticket.barcodeFormat)
+            barcodeImage.setImageBitmap(bitmap)
+            barcodeImage.contentDescription = context.getString(R.string.deutschlandticket_barcode_description)
+
+            actionOpen.setOnClickListener { onTicketOpen(ticket) }
+        }
+
+        override fun onExpansionChanged(expanded: Boolean) {
+            expandedSection.isVisible = expanded
+            actionOpen.isVisible = expanded
         }
 
         private fun createQrBitmap(content: String, color: Int): Bitmap? {

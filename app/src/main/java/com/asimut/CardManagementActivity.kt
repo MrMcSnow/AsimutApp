@@ -67,6 +67,21 @@ class CardManagementActivity : AppCompatActivity() {
         cardAdapter = CardAdapter(cards, ::handleCardClick)
         cardRecyclerView.layoutManager = LinearLayoutManager(this)
         cardRecyclerView.adapter = cardAdapter
+        val overlap = resources.getDimensionPixelSize(R.dimen.card_stack_overlap)
+        cardRecyclerView.addItemDecoration(CardStackItemDecoration(overlap))
+        cardRecyclerView.clipToPadding = false
+        cardRecyclerView.clipChildren = false
+        cardRecyclerView.itemAnimator?.changeDuration = CARD_ANIMATION_DURATION.toLong()
+        cardRecyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                if (!addCardFab.isVisible || hasReachedLimit()) return
+                if (dy > 10 && !isFabHiddenByScroll) {
+                    hideFabForScroll()
+                } else if (dy < -10 && isFabHiddenByScroll) {
+                    showFabAfterScroll()
+                }
+            }
+        })
 
         sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         loadCards()
@@ -118,6 +133,7 @@ class CardManagementActivity : AppCompatActivity() {
                 showCardTypeSelectionDialog()
             }
         }
+    }
 
         nfcAdapter = NfcAdapter.getDefaultAdapter(this)
         if (nfcAdapter == null) {
@@ -216,6 +232,7 @@ class CardManagementActivity : AppCompatActivity() {
 
             saveStudentCardData(firstName, lastName, matrikelnummer, birthDate)
             dialog.dismiss()
+            launchDeutschlandTicketPicker()
         }
     }
 
