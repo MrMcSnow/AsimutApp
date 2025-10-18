@@ -34,5 +34,6 @@
     <string name="deutschlandticket_import_error">Ticket konnte nicht importiert werden.</string>
     <string name="deutschlandticket_update_success">Ticket wurde aktualisiert.</string>
     <string name="deutschlandticket_missing">Ticket nicht gefunden.</string>
+    <string name="deutschlandticket_open_original">Originaldatei öffnen</string>
     <string name="student_card_validation_error">Bitte alle Felder ausfüllen.</string>
 </resources>
