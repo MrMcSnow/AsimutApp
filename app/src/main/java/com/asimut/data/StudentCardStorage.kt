@@ -25,6 +25,8 @@ class StudentCardStorage(context: Context) {
             val lastName = json.optString(JSON_LAST_NAME)
             val matrikelnummer = json.optString(JSON_MATRIKELNUMMER)
             val birthDate = json.optString(JSON_BIRTH_DATE)
+            val nfcTagId = json.optString(JSON_NFC_TAG_ID).takeIf { !it.isNullOrBlank() }
+            val nfcPayload = json.optString(JSON_NFC_PAYLOAD).takeIf { !it.isNullOrBlank() }
             if (id.isNullOrBlank() || matrikelnummer.isNullOrBlank()) continue
             result.add(
                 StudentCard(
@@ -32,7 +34,9 @@ class StudentCardStorage(context: Context) {
                     firstName = firstName,
                     lastName = lastName,
                     matrikelnummer = matrikelnummer,
-                    birthDate = birthDate
+                    birthDate = birthDate,
+                    nfcTagId = nfcTagId,
+                    nfcPayload = nfcPayload
                 )
             )
         }
@@ -48,6 +52,9 @@ class StudentCardStorage(context: Context) {
             cards.add(card)
         }
         saveCards(cards)
+        if (getDefaultCardId().isNullOrBlank()) {
+            setDefaultCardId(card.id)
+        }
     }
 
     fun createCard(firstName: String, lastName: String, matrikelnummer: String, birthDate: String): StudentCard {
@@ -63,6 +70,40 @@ class StudentCardStorage(context: Context) {
     fun deleteCardById(id: String) {
         val cards = getCards().filterNot { it.id == id }
         saveCards(cards)
+        if (getDefaultCardId() == id) {
+            setDefaultCardId(cards.firstOrNull()?.id)
+        }
+    }
+
+    fun getCardById(id: String): StudentCard? {
+        return getCards().firstOrNull { it.id == id }
+    }
+
+    fun updateCardNfcData(cardId: String, tagId: String, payload: String?) {
+        val cards = getCards().map { card ->
+            if (card.id == cardId) {
+                card.copy(nfcTagId = tagId, nfcPayload = payload ?: card.nfcPayload)
+            } else {
+                card
+            }
+        }
+        saveCards(cards)
+    }
+
+    fun getDefaultCardId(): String? = preferences.getString(KEY_DEFAULT_CARD_ID, null)
+
+    fun setDefaultCardId(cardId: String?) {
+        preferences.edit().putString(KEY_DEFAULT_CARD_ID, cardId).apply()
+    }
+
+    fun ensureDefaultCardId(preferredCardId: String? = null) {
+        val current = getDefaultCardId()
+        if (!current.isNullOrBlank()) return
+        val cards = getCards()
+        val fallback = preferredCardId ?: cards.firstOrNull()?.id
+        if (!fallback.isNullOrBlank()) {
+            setDefaultCardId(fallback)
+        }
     }
 
     private fun saveCards(cards: List<StudentCard>) {
@@ -74,6 +115,8 @@ class StudentCardStorage(context: Context) {
                 put(JSON_LAST_NAME, card.lastName)
                 put(JSON_MATRIKELNUMMER, card.matrikelnummer)
                 put(JSON_BIRTH_DATE, card.birthDate)
+                card.nfcTagId?.let { put(JSON_NFC_TAG_ID, it) }
+                card.nfcPayload?.let { put(JSON_NFC_PAYLOAD, it) }
             }
             array.put(json)
         }
@@ -83,10 +126,13 @@ class StudentCardStorage(context: Context) {
     companion object {
         private const val PREFS_NAME = "student_cards"
         private const val KEY_STUDENT_CARDS = "cards"
+        private const val KEY_DEFAULT_CARD_ID = "default_card_id"
         private const val JSON_ID = "id"
         private const val JSON_FIRST_NAME = "firstName"
         private const val JSON_LAST_NAME = "lastName"
         private const val JSON_MATRIKELNUMMER = "matrikelnummer"
         private const val JSON_BIRTH_DATE = "birthDate"
+        private const val JSON_NFC_TAG_ID = "nfcTagId"
+        private const val JSON_NFC_PAYLOAD = "nfcPayload"
     }
 }

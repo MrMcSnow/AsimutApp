@@ -38,6 +38,10 @@
         </activity>
 
         <activity
+            android:name=".StudentCardNfcCaptureActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".DticketDetailActivity"
             android:exported="false" />
 

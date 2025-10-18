@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:padding="24dp"
+    tools:context=".StudentCardNfcCaptureActivity">
+
+    <TextView
+        android:id="@+id/nfc_instruction_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
+        android:textColor="?attr/colorOnSurface"
+        android:textStyle="bold"
+        android:textAlignment="center"
+        android:text="@string/student_card_nfc_scan_instruction" />
+
+    <ProgressBar
+        android:id="@+id/nfc_progress"
+        style="?android:attr/progressBarStyleLarge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:indeterminate="true" />
+
+    <TextView
+        android:id="@+id/nfc_status_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:textAlignment="center"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:textSize="14sp"
+        android:text="@string/student_card_nfc_scan_waiting" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/nfc_cancel_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="36dp"
+        android:text="@string/student_card_nfc_cancel" />
+
+</LinearLayout>
