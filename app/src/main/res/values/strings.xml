@@ -40,7 +40,7 @@
     <string name="deutschlandticket_open_original">Originaldatei öffnen</string>
     <string name="student_card_validation_error">Bitte alle Felder ausfüllen.</string>
     <string name="student_card_default_badge">Standard</string>
-    <string name="student_card_nfc_active_badge">NFC aktiv</string>
+    <string name="student_card_nfc_active_badge">NFC</string>
     <string name="student_card_make_default_title">Standardkarte ändern</string>
     <string name="student_card_make_default_message">Möchtest du %1$s %2$s als Standardkarte für Zahlungen festlegen?</string>
     <string name="student_card_make_default_confirm">Als Standard festlegen</string>
