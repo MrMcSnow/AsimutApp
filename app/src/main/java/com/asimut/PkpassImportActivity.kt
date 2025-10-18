@@ -40,10 +40,10 @@ class PkpassImportActivity : AppCompatActivity() {
         takePersistablePermission(uri)
 
         lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) { importPkpass(uri) }
-            if (result) {
+            val ticketId = withContext(Dispatchers.IO) { importPkpass(uri) }
+            if (ticketId != null) {
                 Toast.makeText(this@PkpassImportActivity, R.string.deutschlandticket_update_success, Toast.LENGTH_LONG).show()
-                navigateBackToDetail()
+                navigateBackToDetail(ticketId)
             } else {
                 Toast.makeText(this@PkpassImportActivity, R.string.deutschlandticket_import_error, Toast.LENGTH_LONG).show()
                 finish()
@@ -51,7 +51,7 @@ class PkpassImportActivity : AppCompatActivity() {
         }
     }
 
-    private suspend fun importPkpass(uri: Uri): Boolean = withContext(Dispatchers.IO) {
+    private suspend fun importPkpass(uri: Uri): String? = withContext(Dispatchers.IO) {
         runCatching {
             val passesDir = File(filesDir, PASSES_DIRECTORY).apply { if (!exists()) mkdirs() }
             val tempFile = File.createTempFile("import_", ".pkpass", cacheDir)
@@ -100,22 +100,23 @@ class PkpassImportActivity : AppCompatActivity() {
                     pkpassPath = finalFile.absolutePath,
                     previewPath = previewPath
                 )
+                ticket.id
             } finally {
                 tempFile.delete()
             }
-            true
         }.getOrElse {
-            false
+            null
         }
     }
 
-    private fun navigateBackToDetail() {
+    private fun navigateBackToDetail(ticketId: String) {
         if (isTaskRoot) {
             finish()
             return
         }
         val detailIntent = Intent(this, DticketDetailActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            putExtra(DticketDetailActivity.EXTRA_TICKET_ID, ticketId)
         }
         startActivity(detailIntent)
         finish()
