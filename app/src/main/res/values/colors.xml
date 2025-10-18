@@ -13,15 +13,15 @@
     <color name="card_swipe_default_background">#FFB3DB</color>
     <color name="card_swipe_default_text">#8A0051</color>
     <color name="delete_icon_red">#FF4A4A</color>
-    <color name="student_card_default_stroke">#E50083</color>
-    <color name="student_card_badge_background">#FFE3F1</color>
-    <color name="student_card_badge_text">#8A0051</color>
+    <color name="student_card_default_stroke">#0F4C81</color>
+    <color name="student_card_badge_background">#0F4C81</color>
+    <color name="student_card_badge_text">#FFFFFFFF</color>
     <color name="student_card_nfc_badge_background">#E1F5E1</color>
     <color name="nfc_banner_background">#E1F5E1</color>
     <color name="nfc_banner_icon_tint">#2E7D32</color>
     <color name="student_card_text_primary">#FF000000</color>
     <color name="student_card_text_secondary">#FF000000</color>
-    <color name="student_card_background_primary">#0F4C81</color>
+    <color name="student_card_background_primary">#E50083</color>
     <color name="student_card_label_color">#CCFFFFFF</color>
     <color name="student_card_value_color">#FFFFFFFF</color>
 </resources>
