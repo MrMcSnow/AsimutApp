@@ -1,50 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:padding="0dp">
+    android:layout_height="match_parent">
 
-    <!-- Header with back button -->
-    <RelativeLayout
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@color/asimut_header"
-        android:padding="16dp">
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
-        <ImageButton
-            android:id="@+id/back_button"
-            android:layout_width="wrap_content"
+        <RelativeLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:src="@drawable/ic_back"
-            android:background="?attr/selectableItemBackground"
-            android:contentDescription="Back button"/>
-    </RelativeLayout>
+            android:background="@color/asimut_header"
+            android:padding="16dp">
 
-    <!-- RecyclerView to display the list of cards -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/card_recycler_view"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:paddingTop="16dp"/>
+            <ImageButton
+                android:id="@+id/back_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/card_management_back"
+                android:src="@drawable/ic_back" />
+        </RelativeLayout>
 
-    <!-- Button to add a new card -->
-    <Button
-        android:id="@+id/add_card_button"
-        android:layout_width="56dp"
-        android:layout_height="56dp"
-        android:layout_gravity="end|bottom"
-        android:background="@drawable/round_button"
-        android:textColor="@android:color/white"
-        android:padding="16dp"
-        android:layout_margin="16dp"
-        android:text="+"
-        android:textSize="11dp"
-        android:gravity="center"
-        android:layout_marginEnd="16dp"/>
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/card_recycler_view"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:padding="16dp"
+            tools:listitem="@layout/item_card" />
+    </LinearLayout>
 
-</LinearLayout>
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/add_card_fab"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="24dp"
+        android:contentDescription="@string/add_card_fab_content_description"
+        app:backgroundTint="@color/asimut_header"
+        app:srcCompat="@drawable/ic_add"
+        app:tint="@android:color/white" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

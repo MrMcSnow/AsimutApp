@@ -71,7 +71,14 @@ class CardAdapter(
         }
     }
 
-    override fun getItemCount() = cards.size
+    override fun getItemCount(): Int = items.size
+
+    override fun getItemViewType(position: Int): Int {
+        return when (items[position]) {
+            is CardListItem.Student -> VIEW_TYPE_STUDENT
+            is CardListItem.Ticket -> VIEW_TYPE_TICKET
+        }
+    }
 
     override fun getItemViewType(position: Int): Int {
         return when (cards[position]) {
@@ -92,10 +99,56 @@ class CardAdapter(
             matrikelnummerTextView.text = card.matrikelnummer
             birthDateTextView.text = card.birthDate
 
-            itemView.setOnLongClickListener {
-                onDeleteClick(card)
-                true
+            itemView.setOnClickListener { onCardClick(CardListItem.Student(card)) }
+        }
+    }
+
+    private class DticketViewHolder(
+        itemView: View,
+        private val onCardClick: (CardListItem) -> Unit
+    ) : RecyclerView.ViewHolder(itemView) {
+        private val titleText: TextView = itemView.findViewById(R.id.text_title)
+        private val subtitleText: TextView = itemView.findViewById(R.id.text_subtitle)
+        private val barcodeImage: ImageView = itemView.findViewById(R.id.image_barcode)
+        private val expirationText: TextView = itemView.findViewById(R.id.text_expiration)
+        private val altText: TextView = itemView.findViewById(R.id.text_alt)
+
+        fun bind(ticket: Dticket) {
+            val context = itemView.context
+            titleText.text = ticket.title.ifBlank { context.getString(R.string.deutschlandticket_title_fallback) }
+            subtitleText.isVisible = !ticket.subtitle.isNullOrBlank()
+            subtitleText.text = ticket.subtitle
+
+            val validityParts = mutableListOf<String>()
+            val validFrom = ticket.validFrom
+            val validTo = ticket.validTo
+            if (!validFrom.isNullOrBlank() && !validTo.isNullOrBlank()) {
+                validityParts += context.getString(R.string.deutschlandticket_validity_range_format, validFrom, validTo)
+            } else if (!validFrom.isNullOrBlank()) {
+                validityParts += context.getString(R.string.deutschlandticket_valid_from_format, validFrom)
+            } else if (!validTo.isNullOrBlank()) {
+                validityParts += context.getString(R.string.deutschlandticket_valid_to_format, validTo)
             }
+
+            ticket.expirationDate?.let {
+                validityParts += context.getString(R.string.deutschlandticket_expiration_format, it)
+            }
+
+            if (validityParts.isNotEmpty()) {
+                expirationText.isVisible = true
+                expirationText.text = validityParts.joinToString(separator = "\n")
+            } else {
+                expirationText.isVisible = false
+            }
+
+            altText.isVisible = !ticket.holder.isNullOrBlank()
+            altText.text = ticket.holder?.let { context.getString(R.string.deutschlandticket_holder_format, it) }
+
+            val bitmap = BarcodeUtil.generateCode(ticket.barcodeMessage, ticket.barcodeFormat)
+            barcodeImage.setImageBitmap(bitmap)
+            barcodeImage.contentDescription = context.getString(R.string.deutschlandticket_barcode_description)
+
+            itemView.setOnClickListener { onCardClick(CardListItem.Ticket(ticket)) }
         }
     }
 

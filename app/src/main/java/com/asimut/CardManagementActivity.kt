@@ -1,7 +1,5 @@
 package com.asimut
 
-import android.app.PendingIntent
-import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
@@ -10,7 +8,7 @@ import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.nfc.tech.Ndef
 import android.os.Bundle
-import android.widget.Button
+import android.view.View
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.Toast
@@ -36,7 +34,7 @@ import org.json.JSONObject
 
 class CardManagementActivity : AppCompatActivity() {
 
-    private lateinit var addCardButton: Button
+    private lateinit var addCardFab: FloatingActionButton
     private lateinit var backButton: ImageButton
     private lateinit var cardRecyclerView: RecyclerView
     private var nfcAdapter: NfcAdapter? = null
@@ -59,14 +57,15 @@ class CardManagementActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_card_management)
 
-        addCardButton = findViewById(R.id.add_card_button)
+        ticketsRepository = TicketsRepository(this)
+        studentCardStorage = StudentCardStorage(this)
+
         backButton = findViewById(R.id.back_button)
+        addCardFab = findViewById(R.id.add_card_fab)
         cardRecyclerView = findViewById(R.id.card_recycler_view)
 
+        cardAdapter = CardAdapter(cards, ::handleCardClick)
         cardRecyclerView.layoutManager = LinearLayoutManager(this)
-        cardAdapter = CardAdapter(cards) { card ->
-            showDeleteCardDialog(card)
-        }
         cardRecyclerView.adapter = cardAdapter
 
         sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -75,6 +74,38 @@ class CardManagementActivity : AppCompatActivity() {
         backButton.setOnClickListener {
             finish()
         }
+    }
+
+    private fun attachSwipeToDelete() {
+        val itemTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean = false
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.bindingAdapterPosition
+                if (position != RecyclerView.NO_POSITION) {
+                    showDeleteConfirmation(position)
+                }
+            }
+        })
+        itemTouchHelper.attachToRecyclerView(cardRecyclerView)
+    }
+
+    private fun loadCards() {
+        cards.clear()
+        studentCardStorage.getCards().mapTo(cards) { CardListItem.Student(it) }
+        ticketsRepository.getAllTickets().mapTo(cards) { CardListItem.Ticket(it) }
+        cardAdapter.notifyDataSetChanged()
+    }
+
+    private fun updateFabVisibility() {
+        addCardFab.isVisible = !hasReachedLimit()
+    }
+
+    private fun hasReachedLimit(): Boolean = cards.size >= MAX_CARDS
 
         addCardButton.setOnClickListener {
             if (cards.size >= MAX_CARDS) {
@@ -145,6 +176,8 @@ class CardManagementActivity : AppCompatActivity() {
             val nfcData = payload.decodeToString()
             saveNfcData(nfcData)
         }
+
+        dialog.show()
     }
 
     private fun showCardTypeSelectionDialog() {
@@ -176,28 +209,59 @@ class CardManagementActivity : AppCompatActivity() {
         builder.setView(view)
         val dialog = builder.create()
 
-        val firstNameEditText: EditText = view.findViewById(R.id.first_name_edit_text)
-        val lastNameEditText: EditText = view.findViewById(R.id.last_name_edit_text)
-        val matrikelnummerEditText: EditText = view.findViewById(R.id.matrikelnummer_edit_text)
-        val birthDateEditText: EditText = view.findViewById(R.id.birth_date_edit_text)
-        val doneButton: Button = view.findViewById(R.id.done_button)
+        takePersistablePermission(uri)
 
-        doneButton.setOnClickListener {
-            val firstName = firstNameEditText.text.toString()
-            val lastName = lastNameEditText.text.toString()
-            val matrikelnummer = matrikelnummerEditText.text.toString()
-            val birthDate = birthDateEditText.text.toString()
+        lifecycleScope.launch {
+            val ticket = runCatching { importDeutschlandTicket(uri) }.getOrNull()
 
             saveStudentCardData(firstName, lastName, matrikelnummer, birthDate)
             dialog.dismiss()
         }
-
-        dialog.show()
     }
 
-    private fun saveNfcData(nfcData: String) {
-        // Save NFC data to a file or shared preferences
-        Toast.makeText(this, "NFC data saved: $nfcData", Toast.LENGTH_SHORT).show()
+    private fun takePersistablePermission(uri: Uri) {
+        try {
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        } catch (_: SecurityException) {
+            // Ignore if permission cannot be persisted
+        }
+    }
+
+    private suspend fun importDeutschlandTicket(uri: Uri): Dticket? = withContext(Dispatchers.IO) {
+        DocumentFile.fromSingleUri(this@CardManagementActivity, uri) ?: return@withContext null
+        val storageDir = File(filesDir, PASSES_DIRECTORY).apply { if (!exists()) mkdirs() }
+        val tempFile = File.createTempFile("ticket_", ".pkpass", storageDir)
+
+        contentResolver.openInputStream(uri)?.use { input ->
+            FileOutputStream(tempFile).use { output ->
+                input.copyTo(output)
+            }
+        } ?: return@withContext null
+
+        val payload = parseDeutschlandTicket(tempFile) ?: run {
+            tempFile.delete()
+            return@withContext null
+        }
+
+        val finalFile = File(storageDir, "${payload.id}.pkpass")
+        if (finalFile.exists()) {
+            finalFile.delete()
+        }
+
+        try {
+            FileInputStream(tempFile).use { input ->
+                FileOutputStream(finalFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+        } finally {
+            tempFile.delete()
+        }
+
+        return@withContext payload.toTicket(finalFile.absolutePath)
     }
 
     private fun saveStudentCardData(
@@ -224,7 +288,6 @@ class CardManagementActivity : AppCompatActivity() {
         builder.setNegativeButton(R.string.delete_no) { dialog, _ ->
             dialog.dismiss()
         }
-        builder.show()
     }
 
     private fun deleteCardData(card: CardItem) {
@@ -343,6 +406,106 @@ class CardManagementActivity : AppCompatActivity() {
             }
             editor.apply()
         }
+        return "PKBarcodeFormatAztec"
+    }
+
+    private fun JSONObject.findFieldValue(keys: List<String>, labels: List<String>): String? {
+        val generic = optJSONObject("generic") ?: return null
+        val arrays = listOf(
+            generic.optJSONArray("primaryFields"),
+            generic.optJSONArray("secondaryFields"),
+            generic.optJSONArray("auxiliaryFields"),
+            generic.optJSONArray("backFields"),
+            generic.optJSONArray("additionalInfoFields")
+        )
+        arrays.forEach { array ->
+            array?.let {
+                for (index in 0 until it.length()) {
+                    val obj = it.optJSONObject(index) ?: continue
+                    val key = obj.optString("key").lowercase(Locale.getDefault())
+                    val label = obj.optString("label").lowercase(Locale.getDefault())
+                    val value = obj.optString("value")
+                    if (value.isNullOrBlank()) continue
+                    if (keys.any { keyCandidate -> key == keyCandidate.lowercase(Locale.getDefault()) }) {
+                        return value
+                    }
+                    if (labels.any { labelCandidate -> label.contains(labelCandidate.lowercase(Locale.getDefault())) }) {
+                        return value
+                    }
+                }
+            }
+        }
+        return null
+    }
+
+    private fun parseValidityRange(value: String?): Pair<String?, String?> {
+        if (value.isNullOrBlank()) return null to null
+        val separators = listOf("-", "–", "—")
+        separators.forEach { separator ->
+            if (value.contains(separator)) {
+                val parts = value.split(separator)
+                if (parts.size >= 2) {
+                    return parts[0].trim() to parts[1].trim()
+                }
+            }
+        }
+        return value.trim() to null
+    }
+
+    private fun formatDate(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        val trimmed = raw.trim()
+        DATE_PATTERNS.forEach { pattern ->
+            try {
+                val parser = SimpleDateFormat(pattern, Locale.getDefault())
+                parser.isLenient = true
+                val date = parser.parse(trimmed) ?: return@forEach
+                return SimpleDateFormat(OUTPUT_DATE_PATTERN, Locale.getDefault()).format(date)
+            } catch (_: ParseException) {
+                // try next pattern
+            }
+        }
+        return trimmed
+    }
+
+    private data class TicketPayload(
+        val id: String,
+        val title: String,
+        val subtitle: String?,
+        val barcodeMessage: String,
+        val barcodeFormat: String,
+        val validFrom: String?,
+        val validTo: String?,
+        val expirationDate: String?,
+        val holder: String?
+    ) {
+        fun toTicket(path: String) = Dticket(
+            id = id,
+            title = title,
+            subtitle = subtitle,
+            barcodeMessage = barcodeMessage,
+            barcodeFormat = barcodeFormat,
+            validFrom = validFrom,
+            validTo = validTo,
+            expirationDate = expirationDate,
+            holder = holder,
+            pkpassLocalPath = path
+        )
+    }
+
+    companion object {
+        private const val MAX_CARDS = 5
+        private const val PASSES_DIRECTORY = "dtickets"
+        private const val BUFFER_SIZE = 4096
+        private val DATE_PATTERNS = listOf(
+            "yyyy-MM-dd'T'HH:mm:ssXXX",
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            "yyyy-MM-dd'T'HH:mmXXX",
+            "yyyy-MM-dd",
+            "dd.MM.yyyy",
+            "dd.MM.yy"
+        )
+        private const val OUTPUT_DATE_PATTERN = "dd.MM.yyyy"
     }
 
     private fun persistCards() {
