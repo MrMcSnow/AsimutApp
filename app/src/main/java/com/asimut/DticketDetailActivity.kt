@@ -10,7 +10,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
-import com.asimut.data.DticketRepository
 import com.asimut.data.TicketsRepository
 import com.asimut.models.Dticket
 import com.asimut.util.BarcodeUtil
@@ -21,57 +20,32 @@ class DticketDetailActivity : AppCompatActivity() {
 
     private lateinit var ticketsRepository: TicketsRepository
 
-    private lateinit var titleText: TextView
-    private lateinit var subtitleText: TextView
-    private lateinit var barcodeImage: ImageView
-    private lateinit var validityText: TextView
-    private lateinit var expirationText: TextView
-    private lateinit var holderText: TextView
-    private lateinit var openButton: MaterialButton
-    private lateinit var updateButton: MaterialButton
-
-    private var currentTicketId: String? = null
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_dticket_detail)
 
         ticketsRepository = TicketsRepository(this)
 
-        titleText = findViewById(R.id.detail_title)
-        subtitleText = findViewById(R.id.detail_subtitle)
-        barcodeImage = findViewById(R.id.detail_barcode)
-        validityText = findViewById(R.id.detail_validity)
-        expirationText = findViewById(R.id.detail_expiration)
-        holderText = findViewById(R.id.detail_holder)
-        openButton = findViewById(R.id.detail_open_original)
-        updateButton = findViewById(R.id.update_ticket_button)
-
-        currentTicketId = intent.getStringExtra(EXTRA_TICKET_ID)
-
-        openButton.setOnClickListener { openCurrentTicket() }
-
-        updateButton.setOnClickListener { openUpdatePortal() }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        refreshTicket()
-    }
-
-    private fun refreshTicket() {
-        val ticketFromId = currentTicketId?.let { ticketsRepository.getTicketById(it) }
-        val ticket = ticketFromId ?: ticketsRepository.getAllTickets().firstOrNull()
+        val ticketId = intent.getStringExtra(EXTRA_TICKET_ID)
+        val ticket = ticketId?.let { ticketsRepository.getTicketById(it) }
         if (ticket == null) {
-            showTicketMissing()
+            Toast.makeText(this, R.string.deutschlandticket_missing, Toast.LENGTH_LONG).show()
             finish()
             return
         }
-        currentTicketId = ticket.id
+
         bindTicket(ticket)
     }
 
     private fun bindTicket(ticket: Dticket) {
+        val titleText: TextView = findViewById(R.id.detail_title)
+        val subtitleText: TextView = findViewById(R.id.detail_subtitle)
+        val barcodeImage: ImageView = findViewById(R.id.detail_barcode)
+        val validityText: TextView = findViewById(R.id.detail_validity)
+        val expirationText: TextView = findViewById(R.id.detail_expiration)
+        val holderText: TextView = findViewById(R.id.detail_holder)
+        val openButton: MaterialButton = findViewById(R.id.detail_open_original)
+
         titleText.text = ticket.title.ifBlank { getString(R.string.deutschlandticket_title_fallback) }
         subtitleText.isVisible = !ticket.subtitle.isNullOrBlank()
         subtitleText.text = ticket.subtitle
@@ -107,35 +81,14 @@ class DticketDetailActivity : AppCompatActivity() {
             holderText.isVisible = false
         }
 
-        val previewUri = DticketRepository.previewUri(this)
-        if (previewUri != null) {
-            barcodeImage.setImageURI(null)
-            barcodeImage.setImageURI(previewUri)
-        } else {
-            val barcodeBitmap = runCatching {
-                BarcodeUtil.generateCode(ticket.barcodeMessage, ticket.barcodeFormat, size = 900)
-            }.getOrNull()
-            if (barcodeBitmap != null) {
-                barcodeImage.setImageBitmap(barcodeBitmap)
-            } else {
-                barcodeImage.setImageDrawable(null)
-                Toast.makeText(this, R.string.deutschlandticket_import_error, Toast.LENGTH_LONG).show()
-            }
-        }
-    }
+        val barcodeBitmap = BarcodeUtil.generateCode(ticket.barcodeMessage, ticket.barcodeFormat, size = 900)
+        barcodeImage.setImageBitmap(barcodeBitmap)
 
-    private fun openCurrentTicket() {
-        val ticket = currentTicketId?.let { ticketsRepository.getTicketById(it) }
-            ?: ticketsRepository.getAllTickets().firstOrNull()
-        if (ticket != null) {
-            openOriginal(ticket)
-        } else {
-            showTicketMissing()
-        }
+        openButton.setOnClickListener { openOriginal(ticket) }
     }
 
     private fun openOriginal(ticket: Dticket) {
-        val file = DticketRepository.getPkpassPath(this)?.let { File(it) } ?: File(ticket.pkpassLocalPath)
+        val file = File(ticket.pkpassLocalPath)
         if (!file.exists()) {
             Toast.makeText(this, R.string.deutschlandticket_file_missing, Toast.LENGTH_LONG).show()
             return
@@ -161,21 +114,9 @@ class DticketDetailActivity : AppCompatActivity() {
         }
     }
 
-    private fun openUpdatePortal() {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(UPDATE_URL))
-        runCatching { startActivity(intent) }.onFailure {
-            Toast.makeText(this, R.string.deutschlandticket_update_launch_error, Toast.LENGTH_LONG).show()
-        }
-    }
-
-    private fun showTicketMissing() {
-        Toast.makeText(this, R.string.deutschlandticket_missing, Toast.LENGTH_LONG).show()
-    }
-
     companion object {
         private const val EXTRA_TICKET_ID = "extra_ticket_id"
         private const val MIME_PKPASS = "application/vnd.apple.pkpass"
-        private const val UPDATE_URL = "https://abo.ride-ticketing.de/app/login?partnerId=de61d47ca0d1a6b3b8a6c8502c89e09e"
 
         fun createIntent(context: Context, ticketId: String): Intent {
             return Intent(context, DticketDetailActivity::class.java).apply {
