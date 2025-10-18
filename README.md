@@ -95,8 +95,8 @@ Sie bündelt alle wichtigen Hochschuldienste an einem Ort – von Asimut über L
 **Serhii Lobazanov**  
 Jazz & Media Student @ HMTMH  
 📍 Hannover, Deutschland  
-📧 mr.mcsnow.dev@gmail.com  
-🌐 [Telegram](https://t.me/MrMcSnow) • [Instagram](https://instagram.com/mr.mcsnow)
+📧 mr.mcsnow.skylight@gmail.com  
+🌐 [Telegram](https://t.me/Mr_McSnow) • [Instagram](https://instagram.com/mr.mcsnow)
 
 ---
 
@@ -146,5 +146,5 @@ Jazz & Media Student @ HMTMH
 **Serhii Lobazanov**  
 Jazz & Media Student @ HMTMH  
 📍 Hannover, Germany  
-📧 mr.mcsnow.dev@gmail.com  
-🌐 [Telegram](https://t.me/MrMcSnow) • [Instagram](https://instagram.com/mr.mcsnow)
+📧 mr.mcsnow.skylight@gmail.com  
+🌐 [Telegram](https://t.me/Mr_McSnow) • [Instagram](https://instagram.com/mr.mcsnow)
