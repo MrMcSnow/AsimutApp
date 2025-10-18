@@ -7,6 +7,7 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
+import android.nfc.NfcAdapter
 import android.view.View
 import android.widget.EditText
 import android.widget.ImageButton
@@ -436,10 +437,17 @@ class CardManagementActivity : AppCompatActivity() {
         studentCardStorage.addCard(card)
         loadCards()
         Toast.makeText(this, R.string.student_card_saved, Toast.LENGTH_SHORT).show()
-        launchStudentCardNfcCapture(card)
+        if (isNfcSupported()) {
+            launchStudentCardNfcCapture(card)
+        } else {
+            Toast.makeText(this, R.string.nfc_not_supported, Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun launchStudentCardNfcCapture(card: StudentCard) {
+        if (!isNfcSupported()) {
+            return
+        }
         val intent = StudentCardNfcCaptureActivity.createIntent(
             context = this,
             cardId = card.id,
@@ -448,6 +456,8 @@ class CardManagementActivity : AppCompatActivity() {
         )
         captureStudentCardLauncher.launch(intent)
     }
+
+    private fun isNfcSupported(): Boolean = NfcAdapter.getDefaultAdapter(this) != null
 
     private fun maybePromptForDefaultPaymentSelection(preferredCardId: String?) {
         val studentCards = studentCardStorage.getCards()
