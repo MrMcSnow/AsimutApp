@@ -19,4 +19,6 @@
     <color name="student_card_nfc_badge_background">#E1F5E1</color>
     <color name="nfc_banner_background">#E1F5E1</color>
     <color name="nfc_banner_icon_tint">#2E7D32</color>
+    <color name="student_card_text_primary">#1F1F1F</color>
+    <color name="student_card_text_secondary">#661F1F1F</color>
 </resources>
