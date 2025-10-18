@@ -21,4 +21,7 @@
     <color name="nfc_banner_icon_tint">#2E7D32</color>
     <color name="student_card_text_primary">#FF000000</color>
     <color name="student_card_text_secondary">#FF000000</color>
+    <color name="student_card_background_primary">#0F4C81</color>
+    <color name="student_card_label_color">#CCFFFFFF</color>
+    <color name="student_card_value_color">#FFFFFFFF</color>
 </resources>

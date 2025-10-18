@@ -2,39 +2,43 @@ package com.asimut.util
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.graphics.BitmapFactory
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffColorFilter
 import android.util.TypedValue
 import androidx.core.content.ContextCompat
 import com.asimut.R
 import java.util.Locale
+import kotlin.math.max
 import kotlin.math.min
 
 class StudentCardRenderer(context: Context) {
 
     private val resources = context.resources
 
-    private val templateBitmap: Bitmap = decodeTemplateBitmap()
+    private val templateWidth = min(resources.displayMetrics.widthPixels, MAX_TEMPLATE_WIDTH_PX).coerceAtLeast(1)
+    private val templateHeight = (templateWidth * TEMPLATE_ASPECT_RATIO_HEIGHT / TEMPLATE_ASPECT_RATIO_WIDTH).toInt().coerceAtLeast(1)
+    private val templateRect = RectF(0f, 0f, templateWidth.toFloat(), templateHeight.toFloat())
 
-    private val namePrimaryPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = ContextCompat.getColor(context, R.color.student_card_text_primary)
-        textSize = sp(14f)
+    private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = ContextCompat.getColor(context, R.color.student_card_background_primary)
+        style = Paint.Style.FILL
+    }
+
+    private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = ContextCompat.getColor(context, R.color.student_card_label_color)
+        textSize = sp(12f)
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        textAlign = Paint.Align.CENTER
+        textAlign = Paint.Align.LEFT
     }
 
-    private val nameSecondaryPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = ContextCompat.getColor(context, R.color.student_card_text_primary)
-        textSize = sp(14f)
-        textAlign = Paint.Align.CENTER
-    }
-
-    private val detailsPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = ContextCompat.getColor(context, R.color.student_card_text_secondary)
-        textSize = sp(14f)
+    private val valuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = ContextCompat.getColor(context, R.color.student_card_value_color)
+        textSize = sp(18f)
         textAlign = Paint.Align.LEFT
     }
 
@@ -53,68 +57,26 @@ class StudentCardRenderer(context: Context) {
         color = ContextCompat.getColor(context, R.color.student_card_nfc_badge_background)
     }
 
-    private fun decodeTemplateBitmap(): Bitmap {
-        val options = BitmapFactory.Options().apply {
-            inJustDecodeBounds = true
-        }
-        BitmapFactory.decodeResource(resources, R.drawable.blank_card, options)
+    private val logoBitmap = BitmapFactory.decodeResource(resources, R.drawable.ic_asimut)
+        ?: throw IllegalStateException("Unable to decode ic_asimut drawable")
 
-        if (options.outWidth <= 0 || options.outHeight <= 0) {
-            return BitmapFactory.decodeResource(resources, R.drawable.blank_card)
-                ?: throw IllegalStateException("Unable to decode blank card drawable")
-        }
-
-        val displayMetrics = resources.displayMetrics
-        val requestedWidth = min(displayMetrics.widthPixels, MAX_TEMPLATE_WIDTH_PX)
-            .coerceAtLeast(1)
-        val requestedHeight = (requestedWidth.toFloat() / options.outWidth * options.outHeight)
-            .toInt()
-            .coerceAtLeast(1)
-
-        val decodeOptions = BitmapFactory.Options().apply {
-            inJustDecodeBounds = false
-            inPreferredConfig = Bitmap.Config.ARGB_8888
-            inMutable = false
-            inSampleSize = calculateInSampleSize(
-                options.outWidth,
-                options.outHeight,
-                requestedWidth,
-                requestedHeight
-            )
-        }
-
-        val decoded = BitmapFactory.decodeResource(resources, R.drawable.blank_card, decodeOptions)
-            ?: throw IllegalStateException("Unable to decode blank card drawable")
-
-        if (decoded.width <= requestedWidth && decoded.height <= requestedHeight) {
-            return decoded
-        }
-
-        val scaled = Bitmap.createScaledBitmap(decoded, requestedWidth, requestedHeight, true)
-        if (scaled != decoded) {
-            decoded.recycle()
-        }
-        return scaled
+    private val logoPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        colorFilter = PorterDuffColorFilter(ContextCompat.getColor(context, R.color.black), PorterDuff.Mode.SRC_IN)
     }
 
-    private fun calculateInSampleSize(
-        originalWidth: Int,
-        originalHeight: Int,
-        requestedWidth: Int,
-        requestedHeight: Int
-    ): Int {
-        var inSampleSize = 1
-        if (originalHeight > requestedHeight || originalWidth > requestedWidth) {
-            var halfHeight = originalHeight / 2
-            var halfWidth = originalWidth / 2
-            while ((halfHeight / inSampleSize) >= requestedHeight &&
-                (halfWidth / inSampleSize) >= requestedWidth
-            ) {
-                inSampleSize *= 2
-            }
-        }
-        return inSampleSize
-    }
+    private val outerPadding = dp(24f)
+    private val columnSpacing = dp(16f)
+    private val rowSpacing = dp(12f)
+    private val cornerRadius = dp(32f)
+    private val badgeHorizontalTextPadding = dp(12f)
+    private val badgeVerticalTextPadding = dp(6f)
+    private val logoSize = dp(72f)
+    private val headerSpacing = dp(16f)
+    private val sectionSpacing = dp(24f)
+
+    private val rowAscent = max(-labelPaint.ascent(), -valuePaint.ascent())
+    private val rowDescent = max(labelPaint.descent(), valuePaint.descent())
+    private val rowHeight = rowAscent + rowDescent
 
     fun render(
         firstName: String,
@@ -124,46 +86,30 @@ class StudentCardRenderer(context: Context) {
         showDefaultBadge: Boolean,
         showNfcBadge: Boolean
     ): Bitmap {
-        val bitmap = templateBitmap.copy(Bitmap.Config.ARGB_8888, true)
-
+        val bitmap = Bitmap.createBitmap(templateWidth, templateHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-        val width = bitmap.width.toFloat()
-        val height = bitmap.height.toFloat()
 
-        val horizontalPadding = dp(12f)
-        val verticalPadding = dp(12f)
-        val contentHeight = height - 2 * verticalPadding
-        val centerX = width / 2f
+        canvas.drawRoundRect(templateRect, cornerRadius, cornerRadius, backgroundPaint)
 
-        if (firstName.isNotBlank()) {
-            val top = verticalPadding + FIRST_NAME_PERCENT * contentHeight
-            drawTopAlignedText(canvas, firstName, centerX, top, namePrimaryPaint)
-        }
+        val logoRect = RectF(
+            templateRect.right - outerPadding - logoSize,
+            outerPadding,
+            templateRect.right - outerPadding,
+            outerPadding + logoSize
+        )
+        canvas.drawBitmap(logoBitmap, null, logoRect, logoPaint)
 
-        if (lastName.isNotBlank()) {
-            val top = verticalPadding + LAST_NAME_PERCENT * contentHeight
-            drawTopAlignedText(canvas, lastName, centerX, top, nameSecondaryPaint)
-        }
-
-        if (matrikelnummer.isNotBlank()) {
-            val top = verticalPadding + MATRIKEL_PERCENT * contentHeight
-            drawTopAlignedText(canvas, matrikelnummer, horizontalPadding, top, detailsPaint)
-        }
-
-        if (birthDate.isNotBlank()) {
-            val top = verticalPadding + BIRTH_DATE_PERCENT * contentHeight
-            val start = horizontalPadding + dp(16f)
-            drawTopAlignedText(canvas, birthDate, start, top, detailsPaint)
-        }
+        val badgeTop = logoRect.bottom + headerSpacing
+        val badgeHeight = badgeHeight()
 
         if (showDefaultBadge) {
             drawBadge(
                 canvas = canvas,
                 text = resources.getString(R.string.student_card_default_badge).uppercase(Locale.getDefault()),
                 isStartAligned = true,
-                horizontalPadding = horizontalPadding,
-                verticalPadding = verticalPadding,
-                canvasWidth = width,
+                horizontalPadding = outerPadding,
+                verticalPadding = badgeTop,
+                canvasWidth = templateRect.width(),
                 backgroundPaint = badgeDefaultBackgroundPaint
             )
         }
@@ -173,11 +119,31 @@ class StudentCardRenderer(context: Context) {
                 canvas = canvas,
                 text = resources.getString(R.string.student_card_nfc_active_badge).uppercase(Locale.getDefault()),
                 isStartAligned = false,
-                horizontalPadding = horizontalPadding,
-                verticalPadding = verticalPadding,
-                canvasWidth = width,
+                horizontalPadding = outerPadding,
+                verticalPadding = badgeTop,
+                canvasWidth = templateRect.width(),
                 backgroundPaint = badgeNfcBackgroundPaint
             )
+        }
+
+        val labels = listOf(
+            resources.getString(R.string.student_card_label_last_name) to lastName,
+            resources.getString(R.string.student_card_label_first_name) to firstName,
+            resources.getString(R.string.student_card_label_matrikel) to matrikelnummer,
+            resources.getString(R.string.student_card_label_birth_date) to birthDate
+        )
+
+        val maxLabelWidth = labels.maxOf { labelPaint.measureText(it.first) }
+        val labelX = outerPadding
+        val valueX = labelX + maxLabelWidth + columnSpacing
+
+        val tableTop = max(logoRect.bottom, if (showDefaultBadge || showNfcBadge) badgeTop + badgeHeight else logoRect.bottom) + sectionSpacing
+        var currentBaseline = tableTop + rowAscent
+
+        labels.forEach { (label, value) ->
+            canvas.drawText(label, labelX, currentBaseline, labelPaint)
+            canvas.drawText(value, valueX, currentBaseline, valuePaint)
+            currentBaseline += rowHeight + rowSpacing
         }
 
         return bitmap
@@ -192,11 +158,9 @@ class StudentCardRenderer(context: Context) {
         canvasWidth: Float,
         backgroundPaint: Paint
     ) {
-        val horizontalTextPadding = dp(12f)
-        val verticalTextPadding = dp(6f)
         val textWidth = badgeTextPaint.measureText(text)
-        val badgeWidth = textWidth + horizontalTextPadding * 2
-        val badgeHeight = badgeTextPaint.fontMetrics.let { it.bottom - it.top } + verticalTextPadding * 2
+        val badgeWidth = textWidth + badgeHorizontalTextPadding * 2
+        val badgeHeight = badgeHeight()
         val top = verticalPadding
         val left = if (isStartAligned) {
             horizontalPadding
@@ -206,14 +170,14 @@ class StudentCardRenderer(context: Context) {
         val rect = RectF(left, top, left + badgeWidth, top + badgeHeight)
         val radius = badgeHeight / 2f
         canvas.drawRoundRect(rect, radius, radius, backgroundPaint)
-        val baseline = rect.top + verticalTextPadding - badgeTextPaint.ascent()
+        val baseline = rect.top + badgeVerticalTextPadding - badgeTextPaint.ascent()
         val textX = rect.left + badgeWidth / 2f
         canvas.drawText(text, textX, baseline, badgeTextPaint)
     }
 
-    private fun drawTopAlignedText(canvas: Canvas, text: String, x: Float, top: Float, paint: Paint) {
-        val baseline = top - paint.ascent()
-        canvas.drawText(text, x, baseline, paint)
+    private fun badgeHeight(): Float {
+        val metrics = badgeTextPaint.fontMetrics
+        return metrics.bottom - metrics.top + badgeVerticalTextPadding * 2
     }
 
     private fun dp(value: Float): Float {
@@ -225,10 +189,8 @@ class StudentCardRenderer(context: Context) {
     }
 
     companion object {
-        private const val FIRST_NAME_PERCENT = 0.58f
-        private const val LAST_NAME_PERCENT = 0.66f
-        private const val MATRIKEL_PERCENT = 0.76f
-        private const val BIRTH_DATE_PERCENT = 0.84f
+        private const val TEMPLATE_ASPECT_RATIO_WIDTH = 1087f
+        private const val TEMPLATE_ASPECT_RATIO_HEIGHT = 696f
         private const val MAX_TEMPLATE_WIDTH_PX = 1400
     }
 }
