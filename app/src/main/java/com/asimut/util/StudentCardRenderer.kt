@@ -71,8 +71,7 @@ class StudentCardRenderer(context: Context) {
     private val badgeHorizontalTextPadding = dp(12f)
     private val badgeVerticalTextPadding = dp(6f)
     private val logoSize = dp(72f)
-    private val headerSpacing = dp(16f)
-    private val sectionSpacing = dp(24f)
+    private val headerSpacing = dp(24f)
 
     private val rowAscent = max(-labelPaint.ascent(), -valuePaint.ascent())
     private val rowDescent = max(labelPaint.descent(), valuePaint.descent())
@@ -93,14 +92,15 @@ class StudentCardRenderer(context: Context) {
 
         val logoRect = RectF(
             templateRect.right - outerPadding - logoSize,
-            outerPadding,
+            templateRect.bottom - outerPadding - logoSize,
             templateRect.right - outerPadding,
-            outerPadding + logoSize
+            templateRect.bottom - outerPadding
         )
         canvas.drawBitmap(logoBitmap, null, logoRect, logoPaint)
 
-        val badgeTop = logoRect.bottom + headerSpacing
+        val badgeTop = outerPadding
         val badgeHeight = badgeHeight()
+        val badgesBottom = if (showDefaultBadge || showNfcBadge) badgeTop + badgeHeight else badgeTop
 
         if (showDefaultBadge) {
             drawBadge(
@@ -137,7 +137,7 @@ class StudentCardRenderer(context: Context) {
         val labelX = outerPadding
         val valueX = labelX + maxLabelWidth + columnSpacing
 
-        val tableTop = max(logoRect.bottom, if (showDefaultBadge || showNfcBadge) badgeTop + badgeHeight else logoRect.bottom) + sectionSpacing
+        val tableTop = badgesBottom + headerSpacing
         var currentBaseline = tableTop + rowAscent
 
         labels.forEach { (label, value) ->
