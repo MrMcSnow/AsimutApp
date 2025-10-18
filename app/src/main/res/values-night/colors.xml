@@ -1,6 +1,6 @@
 <resources>
-    <color name="student_card_text_primary">#FFFFFFFF</color>
-    <color name="student_card_text_secondary">#B3FFFFFF</color>
+    <color name="student_card_text_primary">#FF000000</color>
+    <color name="student_card_text_secondary">#FF000000</color>
     <color name="student_card_badge_background">#FF5FA5</color>
     <color name="student_card_badge_text">#1B0011</color>
     <color name="nfc_banner_background">#123C32</color>
