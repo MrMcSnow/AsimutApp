@@ -41,7 +41,9 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.7.0")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
     implementation("com.google.zxing:core:3.5.3")
+    implementation("com.google.android.gms:play-services-wearable:18.2.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("androidx.test:core:1.5.0")

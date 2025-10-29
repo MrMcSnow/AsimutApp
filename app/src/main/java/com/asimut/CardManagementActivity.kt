@@ -586,7 +586,7 @@ class CardManagementActivity : AppCompatActivity() {
 
                 DticketRepository.savePassData(
                     context = this@CardManagementActivity,
-                    ticketId = ticket.id,
+                    payload = payload,
                     passJson = parserResult.jsonString,
                     pkpassPath = finalFile.absolutePath,
                     previewPath = previewPath

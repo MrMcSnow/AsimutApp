@@ -95,7 +95,7 @@ class PkpassImportActivity : AppCompatActivity() {
 
                 DticketRepository.savePassData(
                     context = this@PkpassImportActivity,
-                    ticketId = ticket.id,
+                    payload = payload,
                     passJson = parserResult.jsonString,
                     pkpassPath = finalFile.absolutePath,
                     previewPath = previewPath
