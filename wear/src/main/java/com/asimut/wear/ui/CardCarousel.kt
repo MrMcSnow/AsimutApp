@@ -29,8 +29,8 @@ import androidx.wear.compose.material.ScalingLazyColumn
 import androidx.wear.compose.material.ScalingLazyListScope
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.rememberScalingLazyListState
+import com.asimut.core.sync.PassPayload
 import com.asimut.wear.data.CardRepository
-import com.asimut.wear.model.PassPayload
 import com.asimut.wear.ui.components.CardField
 import com.asimut.wear.ui.components.DeutschlandTicketDetails
 import com.asimut.wear.ui.components.MensaCardDetails

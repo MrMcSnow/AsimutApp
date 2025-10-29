@@ -1,4 +1,4 @@
-package com.asimut.wear.model
+package com.asimut.core.sync
 
 import org.json.JSONObject
 

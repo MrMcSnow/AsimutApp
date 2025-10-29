@@ -43,6 +43,7 @@ dependencies {
     val wearComposeVersion = "1.3.0"
     val lifecycleVersion = "2.6.2"
 
+    implementation(project(":core"))
     implementation(platform("androidx.compose:compose-bom:2024.04.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
