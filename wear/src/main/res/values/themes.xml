@@ -1,0 +1,6 @@
+<resources>
+    <style name="Theme.Asimut.Wear" parent="Theme.Wear.MaterialComponents">
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:colorBackground">@android:color/black</item>
+    </style>
+</resources>
