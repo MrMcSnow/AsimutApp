@@ -4,12 +4,20 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.net.Uri
+import android.util.Log
+import com.asimut.data.DeutschlandTicketParser.Payload
+import com.asimut.sync.WearSync
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 object DticketRepository {
 
+    private const val TAG = "DticketRepository"
     private const val PREFS_NAME = "dticket_repository"
     private const val KEY_PASS_JSON = "dticket_json"
     private const val KEY_UPDATED_AT = "dticket_updated_at"
@@ -17,20 +25,24 @@ object DticketRepository {
     private const val KEY_PREVIEW_PATH = "dticket_preview_path"
     private const val KEY_TICKET_ID = "dticket_ticket_id"
 
+    private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     fun savePassData(
         context: Context,
-        ticketId: String,
+        payload: Payload,
         passJson: String,
         pkpassPath: String,
         previewPath: String?
     ) {
         preferences(context).edit().apply {
-            putString(KEY_TICKET_ID, ticketId)
+            putString(KEY_TICKET_ID, payload.id)
             putString(KEY_PASS_JSON, passJson)
             putLong(KEY_UPDATED_AT, System.currentTimeMillis())
             putString(KEY_PKPASS_PATH, pkpassPath)
             putString(KEY_PREVIEW_PATH, previewPath ?: "")
         }.apply()
+
+        scheduleWearSync(context, payload, passJson)
     }
 
     fun getTicketId(context: Context): String? =
@@ -83,6 +95,29 @@ object DticketRepository {
             runCatching { File(previewPath).takeIf { it.exists() }?.delete() }
         }
         preferences(context).edit().clear().apply()
+    }
+
+    fun latestWearPayload(context: Context): WearSync.PassPayload.DeutschlandTicket? {
+        val jsonString = getPassJsonString(context) ?: return null
+        val json = runCatching { JSONObject(jsonString) }.getOrElse { error ->
+            Log.e(TAG, "Failed to parse Deutschlandticket JSON", error)
+            return null
+        }
+        val payload = DeutschlandTicketParser.buildPayload(json, getTicketId(context))
+            ?: return null
+        return WearSync.Factory.deutschlandTicket(payload, jsonString)
+    }
+
+    private fun scheduleWearSync(context: Context, payload: Payload, passJson: String) {
+        val appContext = context.applicationContext
+        syncScope.launch {
+            val wearPayload = WearSync.Factory.deutschlandTicket(payload, passJson)
+            if (wearPayload == null) {
+                Log.w(TAG, "Skipping wear sync for Deutschlandticket ${payload.id}: payload serialization failed")
+                return@launch
+            }
+            WearSync.pushCard(appContext, wearPayload)
+        }
     }
 
     const val PASSES_DIRECTORY = "passes"

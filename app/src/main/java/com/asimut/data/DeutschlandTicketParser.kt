@@ -26,7 +26,16 @@ object DeutschlandTicketParser {
         val json = jsonPair.first
         val jsonString = jsonPair.second
 
-        val serialNumber = json.optString("serialNumber").takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
+        val payload = buildPayload(json)
+            ?: return null
+
+        return Result(payload = payload, json = json, jsonString = jsonString)
+    }
+
+    fun buildPayload(json: JSONObject, fallbackId: String? = null): Payload? {
+        val serialNumber = json.optString("serialNumber").takeIf { it.isNotBlank() }
+            ?: fallbackId
+            ?: UUID.randomUUID().toString()
         val barcodeMessage = json.findBarcodeMessage() ?: return null
         val barcodeFormat = json.findBarcodeFormat()
 
@@ -56,7 +65,7 @@ object DeutschlandTicketParser {
 
         val subtitle = description ?: organizationName
 
-        val payload = PassPayload.DeutschlandTicket(
+        return Payload(
             id = serialNumber,
             title = title,
             subtitle = subtitle,
@@ -67,8 +76,6 @@ object DeutschlandTicketParser {
             expirationDate = expirationDate,
             holder = holder
         )
-
-        return Result(payload = payload, json = json, jsonString = jsonString)
     }
 
     private fun readPassJson(passFile: File): Pair<JSONObject, String>? {

@@ -2,7 +2,13 @@ package com.asimut.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import com.asimut.models.StudentCard
+import com.asimut.sync.WearSync
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONException
@@ -10,8 +16,10 @@ import org.json.JSONObject
 
 class StudentCardStorage(context: Context) {
 
+    private val appContext = context.applicationContext
     private val preferences: SharedPreferences =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val wearScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     fun getCards(): List<StudentCard> {
         val serialized = preferences.getString(KEY_STUDENT_CARDS, null) ?: return emptyList()
@@ -61,6 +69,7 @@ class StudentCardStorage(context: Context) {
         if (getDefaultCardId().isNullOrBlank()) {
             setDefaultCardId(card.id)
         }
+        syncCard(card)
     }
 
     fun createCard(firstName: String, lastName: String, matrikelnummer: String, birthDate: String): StudentCard {
@@ -94,12 +103,20 @@ class StudentCardStorage(context: Context) {
             }
         }
         saveCards(cards)
+        cards.firstOrNull { it.id == cardId }?.let { syncCard(it) }
     }
 
     fun getDefaultCardId(): String? = preferences.getString(KEY_DEFAULT_CARD_ID, null)
 
     fun setDefaultCardId(cardId: String?) {
+        val previousDefault = getDefaultCardId()
         preferences.edit().putString(KEY_DEFAULT_CARD_ID, cardId).apply()
+        previousDefault?.takeIf { it != cardId }?.let { id ->
+            getCardById(id)?.let { syncCard(it) }
+        }
+        cardId?.let { id ->
+            getCardById(id)?.let { syncCard(it) }
+        }
     }
 
     fun ensureDefaultCardId(preferredCardId: String? = null) {
@@ -129,7 +146,19 @@ class StudentCardStorage(context: Context) {
         preferences.edit().putString(KEY_STUDENT_CARDS, array.toString()).apply()
     }
 
+    private fun syncCard(card: StudentCard) {
+        wearScope.launch {
+            val payload = WearSync.Factory.studentCard(appContext, card, card.id == getDefaultCardId())
+            if (payload == null) {
+                Log.w(TAG, "Skipping wear sync for student card ${card.id}: payload serialization failed")
+                return@launch
+            }
+            WearSync.pushCard(appContext, payload)
+        }
+    }
+
     companion object {
+        private const val TAG = "StudentCardStorage"
         private const val PREFS_NAME = "student_cards"
         private const val KEY_STUDENT_CARDS = "cards"
         private const val KEY_DEFAULT_CARD_ID = "default_card_id"
