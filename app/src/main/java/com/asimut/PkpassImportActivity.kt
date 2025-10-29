@@ -7,10 +7,11 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.asimut.core.util.BarcodeUtil
 import com.asimut.data.DeutschlandTicketParser
 import com.asimut.data.DticketRepository
 import com.asimut.data.TicketsRepository
-import com.asimut.util.BarcodeUtil
+import com.asimut.data.toTicket
 import java.io.File
 import java.io.FileOutputStream
 import kotlinx.coroutines.Dispatchers

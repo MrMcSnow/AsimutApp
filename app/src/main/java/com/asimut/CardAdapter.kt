@@ -10,7 +10,7 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
-import com.asimut.util.BarcodeUtil
+import com.asimut.core.util.BarcodeUtil
 import com.asimut.util.StudentCardRenderer
 import com.google.android.material.card.MaterialCardView
 
