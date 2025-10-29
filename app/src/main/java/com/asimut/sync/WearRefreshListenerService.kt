@@ -2,6 +2,7 @@ package com.asimut.sync
 
 import android.content.Context
 import android.util.Log
+import com.asimut.core.sync.CardSyncContract
 import com.asimut.data.DticketRepository
 import com.asimut.data.StudentCardStorage
 import com.google.android.gms.wearable.MessageEvent
@@ -26,21 +27,21 @@ class WearRefreshListenerService : WearableListenerService() {
 
     private suspend fun resendLatestCards(context: Context) {
         val appContext = context.applicationContext
+        val wearSync = WearSync.from(appContext)
         val studentStorage = StudentCardStorage(appContext)
         val studentCards = studentStorage.getCards()
-        val defaultId = studentStorage.getDefaultCardId()
         studentCards.forEach { card ->
-            val payload = WearSync.Factory.studentCard(appContext, card, card.id == defaultId)
+            val payload = WearSync.Builder.studentCard(appContext, card)
             if (payload == null) {
                 Log.w(TAG, "Skipping student card ${card.id} during wear refresh: payload serialization failed")
             } else {
-                WearSync.pushCard(appContext, payload)
+                wearSync.pushCard(payload)
             }
         }
 
         val ticketPayload = DticketRepository.latestWearPayload(appContext)
         if (ticketPayload != null) {
-            WearSync.pushCard(appContext, ticketPayload)
+            wearSync.pushCard(ticketPayload)
         } else {
             Log.d(TAG, "No Deutschlandticket payload available during wear refresh")
         }
@@ -53,6 +54,6 @@ class WearRefreshListenerService : WearableListenerService() {
 
     companion object {
         private const val TAG = "WearRefreshService"
-        const val REFRESH_PATH = "/cards/refresh"
+        const val REFRESH_PATH = CardSyncContract.PATH_REFRESH_REQUEST
     }
 }
