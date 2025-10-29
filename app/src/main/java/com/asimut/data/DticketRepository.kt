@@ -32,7 +32,9 @@ object DticketRepository {
         payload: PassPayload.DeutschlandTicket,
         passJson: String,
         pkpassPath: String,
-        previewPath: String?
+        previewPath: String?,
+        barcodeMessage: String,
+        barcodeFormat: String
     ) {
         preferences(context).edit().apply {
             putString(KEY_TICKET_ID, payload.id)
@@ -42,7 +44,7 @@ object DticketRepository {
             putString(KEY_PREVIEW_PATH, previewPath ?: "")
         }.apply()
 
-        scheduleWearSync(context, payload, passJson)
+        scheduleWearSync(context, payload, barcodeMessage, barcodeFormat)
     }
 
     fun getTicketId(context: Context): String? =
@@ -97,26 +99,39 @@ object DticketRepository {
         preferences(context).edit().clear().apply()
     }
 
-    fun latestWearPayload(context: Context): WearSync.SyncPayload? {
+    fun latestWearPayload(context: Context): WearSync.CardPayload? {
         val jsonString = getPassJsonString(context) ?: return null
         val json = runCatching { JSONObject(jsonString) }.getOrElse { error ->
             Log.e(TAG, "Failed to parse Deutschlandticket JSON", error)
             return null
         }
-        val payload = DeutschlandTicketParser.buildPayload(json, getTicketId(context))
+        val parsed = DeutschlandTicketParser.buildPayload(json, getTicketId(context))
             ?: return null
-        return WearSync.Factory.deutschlandTicket(payload, jsonString)
+        return WearSync.Builder.deutschlandTicket(
+            payload = parsed.payload,
+            barcodeMessage = parsed.barcodeMessage,
+            barcodeFormat = parsed.barcodeFormat
+        )
     }
 
-    private fun scheduleWearSync(context: Context, payload: PassPayload.DeutschlandTicket, passJson: String) {
+    private fun scheduleWearSync(
+        context: Context,
+        payload: PassPayload.DeutschlandTicket,
+        barcodeMessage: String,
+        barcodeFormat: String
+    ) {
         val appContext = context.applicationContext
         syncScope.launch {
-            val wearPayload = WearSync.Factory.deutschlandTicket(payload, passJson)
+            val wearPayload = WearSync.Builder.deutschlandTicket(
+                payload = payload,
+                barcodeMessage = barcodeMessage,
+                barcodeFormat = barcodeFormat
+            )
             if (wearPayload == null) {
                 Log.w(TAG, "Skipping wear sync for Deutschlandticket ${payload.id}: payload serialization failed")
                 return@launch
             }
-            WearSync.pushCard(appContext, wearPayload)
+            WearSync.from(appContext).pushCard(wearPayload)
         }
     }
 

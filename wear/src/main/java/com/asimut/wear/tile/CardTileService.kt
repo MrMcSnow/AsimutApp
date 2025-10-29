@@ -16,10 +16,15 @@ import com.asimut.core.model.PassPayload
 import com.asimut.wear.R
 import com.asimut.wear.data.CardRepository
 import com.asimut.wear.ui.CardListActivity
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import java.text.NumberFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private const val RESOURCES_VERSION = "1"
 private const val RESOURCE_ID_TILE_ICON = "tile_icon"
@@ -56,17 +61,10 @@ class CardTileService : TileService() {
         deviceParameters: DeviceParameters,
         card: CardRepository.CardEntry?
     ): TileBuilders.Tile {
-        val title = card?.payload?.title ?: getString(R.string.tile_label)
-        val subtitle = card?.payload?.subtitle ?: card?.payload?.description ?: getString(R.string.tile_subtitle)
-        val contentText = when (val payload = card?.payload) {
-            is PassPayload.StudentCard -> payload.matrikelnummer.takeIf { it.isNotBlank() }
-            is PassPayload.DeutschlandTicket -> payload.validFrom?.let { from ->
-                payload.validTo?.let { to -> "$from – $to" } ?: from
-            } ?: payload.holder
-            is PassPayload.MensaCard -> payload.balance
-            is PassPayload.Generic -> payload.fields.entries.firstOrNull()?.let { (key, value) -> "$key: $value" }
-            null -> null
-        } ?: getString(R.string.tile_subtitle)
+        val payload = card?.payload
+        val title = payload?.tileTitle(this) ?: getString(R.string.tile_label)
+        val subtitle = payload?.tileSubtitle() ?: getString(R.string.tile_subtitle)
+        val contentText = payload?.tileContent(this) ?: getString(R.string.tile_subtitle)
 
         val launchAction = ActionBuilders.LaunchAction.Builder()
             .setAndroidActivity(
@@ -121,4 +119,46 @@ class CardTileService : TileService() {
             .setTimeline(timeline)
             .build()
     }
+}
+
+private fun PassPayload.tileTitle(context: CardTileService): String = when (this) {
+    is PassPayload.StudentCard -> listOf(firstName, lastName)
+        .filter { it.isNotBlank() }
+        .joinToString(" ")
+        .ifBlank { context.getString(R.string.student_card_title) }
+
+    is PassPayload.DeutschlandTicket -> context.getString(R.string.deutschland_ticket_title)
+    is PassPayload.MensaCard -> context.getString(R.string.mensa_card_title)
+}
+
+private fun PassPayload.tileSubtitle(): String? = when (this) {
+    is PassPayload.StudentCard -> matrikelnummer.takeIf { it.isNotBlank() }
+    is PassPayload.DeutschlandTicket -> holderName.takeIf { it.isNotBlank() }
+    is PassPayload.MensaCard -> holderName.takeIf { it.isNotBlank() }
+}
+
+private fun PassPayload.tileContent(context: CardTileService): String? = when (this) {
+    is PassPayload.StudentCard -> matrikelnummer.takeIf { it.isNotBlank() }
+    is PassPayload.DeutschlandTicket -> {
+        val from = validFrom.takeIf { it > 0 }?.let { formatDate(it) }
+        val to = validTo.takeIf { it > 0 }?.let { formatDate(it) }
+        when {
+            from != null && to != null -> "$from – $to"
+            from != null -> from
+            to != null -> to
+            else -> holderName.takeIf { it.isNotBlank() }
+        }
+    }
+
+    is PassPayload.MensaCard -> formatCurrency(balance)
+}
+
+private fun formatCurrency(amount: Double): String {
+    val formatter = NumberFormat.getCurrencyInstance(Locale.GERMANY)
+    return formatter.format(amount)
+}
+
+private fun formatDate(epochMillis: Long): String {
+    val formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy").withZone(ZoneId.systemDefault())
+    return formatter.format(Instant.ofEpochMilli(epochMillis))
 }

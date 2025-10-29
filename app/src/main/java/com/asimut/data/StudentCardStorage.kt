@@ -148,12 +148,13 @@ class StudentCardStorage(context: Context) {
 
     private fun syncCard(card: StudentCard) {
         wearScope.launch {
-            val payload = WearSync.Factory.studentCard(appContext, card, card.id == getDefaultCardId())
+            val wearSync = WearSync.from(appContext)
+            val payload = WearSync.Builder.studentCard(appContext, card)
             if (payload == null) {
                 Log.w(TAG, "Skipping wear sync for student card ${card.id}: payload serialization failed")
                 return@launch
             }
-            WearSync.pushCard(appContext, payload)
+            wearSync.pushCard(payload)
         }
     }
 
