@@ -23,13 +23,14 @@ import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.asimut.CardAdapter.CardItem
+import com.asimut.core.util.BarcodeUtil
 import com.asimut.data.DeutschlandTicketParser
 import com.asimut.data.DticketRepository
 import com.asimut.data.StudentCardStorage
 import com.asimut.data.TicketsRepository
+import com.asimut.data.toTicket
 import com.asimut.models.Dticket
 import com.asimut.models.StudentCard
-import com.asimut.util.BarcodeUtil
 import com.asimut.StudentCardNfcCaptureActivity
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
