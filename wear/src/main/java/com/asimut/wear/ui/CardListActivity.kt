@@ -34,8 +34,8 @@ import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Refresh
+import com.asimut.core.sync.CardSyncContract
 import com.asimut.wear.data.CardRepository
-import com.asimut.wear.sync.CardSyncContract
 import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

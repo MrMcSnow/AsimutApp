@@ -4,11 +4,13 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import com.asimut.core.model.PassPayload as CorePassPayload
+import com.asimut.core.sync.CardSyncContract
+import com.asimut.core.sync.PassPayload
+import com.asimut.core.util.BarcodeUtil
+import com.asimut.data.DeutschlandTicketParser
 import com.asimut.models.StudentCard
-import com.asimut.util.BarcodeUtil
 import com.asimut.util.StudentCardRenderer
 import com.google.android.gms.wearable.Asset
-import com.google.android.gms.wearable.DataMap
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.PutDataRequest
 import com.google.android.gms.wearable.Wearable
@@ -59,7 +61,7 @@ object WearSync {
         protected abstract fun toCorePayload(): CorePassPayload
 
         fun toPutDataRequest(): PutDataRequest {
-            val request = PutDataMapRequest.create("$PATH_CARDS/$id")
+            val request = PutDataMapRequest.create("${CardSyncContract.PATH_BASE}/${payload.id}")
             val map = request.dataMap
             map.putString(KEY_ID, id)
             map.putString(KEY_TYPE, type)
@@ -245,19 +247,19 @@ object WearSync {
         }
     }
 
-    suspend fun pushCard(context: Context, payload: PassPayload) {
+    suspend fun pushCard(context: Context, payload: SyncPayload) {
         val appContext = context.applicationContext
         val request = payload.toPutDataRequest()
         try {
             Wearable.getDataClient(appContext).putDataItem(request).await()
-            Log.d(TAG, "Pushed card ${payload.id} (${payload.type}) to wear devices")
+            Log.d(TAG, "Pushed card ${payload.payload.id} (${payload.payload.type}) to wear devices")
         } catch (error: Exception) {
-            Log.e(TAG, "Failed to push card ${payload.id}", error)
+            Log.e(TAG, "Failed to push card ${payload.payload.id}", error)
         }
     }
 
     object Factory {
-        fun studentCard(context: Context, card: StudentCard, isDefault: Boolean): PassPayload.StudentCard? {
+        fun studentCard(context: Context, card: StudentCard, isDefault: Boolean): SyncPayload? {
             val renderer = StudentCardRenderer(context)
             val bitmap = runCatching {
                 renderer.render(
@@ -279,23 +281,37 @@ object WearSync {
                 return null
             }
 
-            return PassPayload.StudentCard(
-                cardId = card.id,
-                firstName = card.firstName,
-                lastName = card.lastName,
-                matrikelnummer = card.matrikelnummer,
-                birthDate = card.birthDate,
-                nfcTagId = card.nfcTagId,
-                nfcPayload = card.nfcPayload,
-                isDefault = isDefault,
-                photoBytes = photoBytes
+            val title = listOf(card.firstName, card.lastName)
+                .filter { it.isNotBlank() }
+                .joinToString(" ")
+                .ifBlank { "Student Card" }
+            val subtitle = card.matrikelnummer.takeIf { it.isNotBlank() }
+            val fields = buildMap {
+                put("firstName", card.firstName)
+                put("lastName", card.lastName)
+                put("matrikelnummer", card.matrikelnummer)
+                put("birthDate", card.birthDate)
+                card.nfcTagId?.takeIf { it.isNotBlank() }?.let { put("nfcTagId", it) }
+                card.nfcPayload?.takeIf { it.isNotBlank() }?.let { put("nfcPayload", it) }
+                if (isDefault) put("status", "Primary card")
+            }
+
+            val payload = PassPayload(
+                id = card.id,
+                type = PassPayload.CardType.STUDENT_CARD,
+                title = title,
+                subtitle = subtitle,
+                fields = fields,
+                updatedAtEpochMillis = System.currentTimeMillis()
             )
+
+            return SyncPayload(payload = payload, imageBytes = photoBytes)
         }
 
         fun deutschlandTicket(
             payload: CorePassPayload.DeutschlandTicket,
             jsonString: String
-        ): PassPayload.DeutschlandTicket? {
+        ): SyncPayload? {
             val barcodeBitmap = runCatching {
                 BarcodeUtil.generateCode(payload.barcodeMessage, payload.barcodeFormat, size = 900)
             }.getOrElse { error ->
@@ -309,23 +325,67 @@ object WearSync {
                 return null
             }
 
-            return PassPayload.DeutschlandTicket(
-                ticketId = payload.id,
+            val json = runCatching { JSONObject(jsonString) }.getOrNull()
+            val fields = buildMap {
+                payload.holder?.takeIf { it.isNotBlank() }?.let { put("holder", it) }
+                payload.validFrom?.takeIf { it.isNotBlank() }?.let { put("validFrom", it) }
+                payload.validTo?.takeIf { it.isNotBlank() }?.let {
+                    put("validTo", it)
+                    put("validUntil", it)
+                }
+                payload.expirationDate?.takeIf { it.isNotBlank() }?.let { put("expirationDate", it) }
+                json?.optString("subscriptionId")?.takeIf { it.isNotBlank() }?.let {
+                    put("subscriptionId", it)
+                }
+            }
+
+            val passPayload = PassPayload(
+                id = payload.id,
+                type = PassPayload.CardType.DEUTSCHLANDTICKET,
                 title = payload.title,
                 subtitle = payload.subtitle,
-                validFrom = payload.validFrom,
-                validTo = payload.validTo,
-                expirationDate = payload.expirationDate,
-                holder = payload.holder,
-                barcodeMessage = payload.barcodeMessage,
-                barcodeFormat = payload.barcodeFormat,
-                jsonPayload = jsonString,
-                barcodeBytes = barcodeBytes
+                fields = fields,
+                barcode = PassPayload.Barcode(
+                    data = payload.barcodeMessage,
+                    format = mapBarcodeFormat(payload.barcodeFormat)
+                ),
+                updatedAtEpochMillis = System.currentTimeMillis()
             )
+
+            return SyncPayload(payload = passPayload, imageBytes = barcodeBytes)
         }
 
-        fun mensa(cardId: String, json: JSONObject): PassPayload.Mensa {
-            return PassPayload.Mensa(cardId = cardId, jsonPayload = json.toString())
+        fun mensa(cardId: String, json: JSONObject): SyncPayload {
+            val title = json.optString("title").ifBlank { "Mensa Card" }
+            val subtitle = json.optString("subtitle").takeIf { it.isNotBlank() }
+            val description = json.optString("description").takeIf { it.isNotBlank() }
+            val fields = buildMap {
+                json.optString("balance").takeIf { it.isNotBlank() }?.let { put("balance", it) }
+                json.optString("cardNumber").takeIf { it.isNotBlank() }?.let { put("cardNumber", it) }
+                json.optString("lastUpdated").takeIf { it.isNotBlank() }?.let { put("lastUpdated", it) }
+                json.optString("lastTransaction").takeIf { it.isNotBlank() }?.let { put("lastTransaction", it) }
+            }
+
+            val payload = PassPayload(
+                id = cardId,
+                type = PassPayload.CardType.MENSA_CARD,
+                title = title,
+                subtitle = subtitle,
+                description = description,
+                fields = fields,
+                updatedAtEpochMillis = System.currentTimeMillis()
+            )
+
+            return SyncPayload(payload = payload)
+        }
+    }
+
+    private fun mapBarcodeFormat(format: String?): PassPayload.Barcode.Format {
+        val normalized = format?.uppercase() ?: return PassPayload.Barcode.Format.QR_CODE
+        return when {
+            normalized.contains("PDF417") || normalized.contains("PDF_417") -> PassPayload.Barcode.Format.PDF_417
+            normalized.contains("128") -> PassPayload.Barcode.Format.CODE_128
+            else -> PassPayload.Barcode.Format.QR_CODE
         }
     }
 

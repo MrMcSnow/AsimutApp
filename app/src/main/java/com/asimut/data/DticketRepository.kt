@@ -97,7 +97,7 @@ object DticketRepository {
         preferences(context).edit().clear().apply()
     }
 
-    fun latestWearPayload(context: Context): WearSync.PassPayload.DeutschlandTicket? {
+    fun latestWearPayload(context: Context): WearSync.SyncPayload? {
         val jsonString = getPassJsonString(context) ?: return null
         val json = runCatching { JSONObject(jsonString) }.getOrElse { error ->
             Log.e(TAG, "Failed to parse Deutschlandticket JSON", error)
