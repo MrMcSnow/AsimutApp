@@ -5,7 +5,7 @@ import android.graphics.Bitmap
 import android.util.Log
 import com.asimut.data.DeutschlandTicketParser
 import com.asimut.models.StudentCard
-import com.asimut.util.BarcodeUtil
+import com.asimut.core.util.BarcodeUtil
 import com.asimut.util.StudentCardRenderer
 import com.google.android.gms.wearable.Asset
 import com.google.android.gms.wearable.DataMap
