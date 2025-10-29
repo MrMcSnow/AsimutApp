@@ -10,7 +10,7 @@ import androidx.datastore.preferences.core.preferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import com.asimut.wear.model.PassPayload
+import com.asimut.core.sync.PassPayload
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException

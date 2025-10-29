@@ -1,4 +1,4 @@
-package com.asimut.wear.sync
+package com.asimut.core.sync
 
 object CardSyncContract {
     const val PATH_BASE = "/cards"
