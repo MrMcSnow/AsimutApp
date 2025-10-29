@@ -12,6 +12,7 @@ import androidx.wear.tiles.material.layouts.PrimaryLayout
 import androidx.wear.tiles.material.Text
 import androidx.wear.tiles.material.ChipDefaults
 import androidx.wear.tiles.material.PrimaryChip
+import com.asimut.core.model.PassPayload
 import com.asimut.wear.R
 import com.asimut.wear.data.CardRepository
 import com.asimut.wear.ui.CardListActivity
@@ -57,8 +58,15 @@ class CardTileService : TileService() {
     ): TileBuilders.Tile {
         val title = card?.payload?.title ?: getString(R.string.tile_label)
         val subtitle = card?.payload?.subtitle ?: card?.payload?.description ?: getString(R.string.tile_subtitle)
-        val contentText = card?.payload?.fields?.entries?.firstOrNull()?.let { (key, value) -> "$key: $value" }
-            ?: getString(R.string.tile_subtitle)
+        val contentText = when (val payload = card?.payload) {
+            is PassPayload.StudentCard -> payload.matrikelnummer.takeIf { it.isNotBlank() }
+            is PassPayload.DeutschlandTicket -> payload.validFrom?.let { from ->
+                payload.validTo?.let { to -> "$from – $to" } ?: from
+            } ?: payload.holder
+            is PassPayload.MensaCard -> payload.balance
+            is PassPayload.Generic -> payload.fields.entries.firstOrNull()?.let { (key, value) -> "$key: $value" }
+            null -> null
+        } ?: getString(R.string.tile_subtitle)
 
         val launchAction = ActionBuilders.LaunchAction.Builder()
             .setAndroidActivity(

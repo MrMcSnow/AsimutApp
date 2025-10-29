@@ -3,7 +3,7 @@ package com.asimut.sync
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
-import com.asimut.data.DeutschlandTicketParser
+import com.asimut.core.model.PassPayload as CorePassPayload
 import com.asimut.models.StudentCard
 import com.asimut.util.BarcodeUtil
 import com.asimut.util.StudentCardRenderer
@@ -15,6 +15,7 @@ import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.tasks.await
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
+import kotlin.text.Charsets
 
 object WearSync {
 
@@ -42,6 +43,8 @@ object WearSync {
     private const val KEY_BARCODE_FORMAT = "barcodeFormat"
     private const val KEY_JSON_PAYLOAD = "jsonPayload"
     private const val KEY_BARCODE_BITMAP = "barcodeBitmap"
+    private const val KEY_SHARED_PAYLOAD_JSON = "payload_json"
+    private const val KEY_SHARED_IMAGE_ASSET = "image_asset"
 
     private const val TYPE_STUDENT_CARD = "student_card"
     private const val TYPE_DEUTSCHLAND_TICKET = "deutschlandticket"
@@ -53,6 +56,7 @@ object WearSync {
 
         protected abstract fun writeTo(dataMap: DataMap)
         protected open fun provideAssets(): Map<String, Asset> = emptyMap()
+        protected abstract fun toCorePayload(): CorePassPayload
 
         fun toPutDataRequest(): PutDataRequest {
             val request = PutDataMapRequest.create("$PATH_CARDS/$id")
@@ -61,6 +65,7 @@ object WearSync {
             map.putString(KEY_TYPE, type)
             map.putLong(KEY_UPDATED_AT, timestamp)
             writeTo(map)
+            map.putString(KEY_SHARED_PAYLOAD_JSON, toCorePayload().toJson())
             provideAssets().forEach { (key, asset) -> map.putAsset(key, asset) }
             return request.asPutDataRequest().apply { setUrgent() }
         }
@@ -90,7 +95,34 @@ object WearSync {
 
             override fun provideAssets(): Map<String, Asset> {
                 val bytes = photoBytes ?: return emptyMap()
-                return mapOf(KEY_STUDENT_PHOTO to Asset.createFromBytes(bytes))
+                val asset = Asset.createFromBytes(bytes)
+                return mapOf(
+                    KEY_SHARED_IMAGE_ASSET to asset,
+                    KEY_STUDENT_PHOTO to asset
+                )
+            }
+
+            override fun toCorePayload(): CorePassPayload {
+                val fields = buildMap {
+                    put("matrikelnummer", matrikelnummer)
+                    put("birthDate", birthDate)
+                    nfcTagId?.let { put("nfcTagId", it) }
+                    nfcPayload?.let { put("nfcPayload", it) }
+                    put("isDefault", isDefault.toString())
+                }
+                return CorePassPayload.StudentCard(
+                    id = cardId,
+                    firstName = firstName,
+                    lastName = lastName,
+                    matrikelnummer = matrikelnummer,
+                    birthDate = birthDate,
+                    nfcTagId = nfcTagId,
+                    nfcPayload = nfcPayload,
+                    isDefault = isDefault,
+                    updatedAtEpochMillis = timestamp,
+                    fields = fields,
+                    displayQr = false
+                )
             }
         }
 
@@ -123,7 +155,41 @@ object WearSync {
 
             override fun provideAssets(): Map<String, Asset> {
                 val bytes = barcodeBytes ?: return emptyMap()
-                return mapOf(KEY_BARCODE_BITMAP to Asset.createFromBytes(bytes))
+                val asset = Asset.createFromBytes(bytes)
+                return mapOf(
+                    KEY_SHARED_IMAGE_ASSET to asset,
+                    KEY_BARCODE_BITMAP to asset
+                )
+            }
+
+            override fun toCorePayload(): CorePassPayload {
+                val fields = buildMap {
+                    validFrom?.let { put("validFrom", it) }
+                    validTo?.let { put("validUntil", it) }
+                    expirationDate?.let { put("expirationDate", it) }
+                    holder?.let { put("holder", it) }
+                }
+                return CorePassPayload.DeutschlandTicket(
+                    id = ticketId,
+                    title = title,
+                    subtitle = subtitle,
+                    barcodeMessage = barcodeMessage,
+                    barcodeFormat = barcodeFormat,
+                    validFrom = validFrom,
+                    validTo = validTo,
+                    expirationDate = expirationDate,
+                    holder = holder,
+                    description = null,
+                    updatedAtEpochMillis = timestamp,
+                    fields = fields,
+                    rawBytes = jsonPayload.toByteArray(Charsets.UTF_8),
+                    qrToken = null,
+                    displayQr = true,
+                    barcode = CorePassPayload.Barcode(
+                        data = barcodeMessage,
+                        format = CorePassPayload.Barcode.Format.fromRaw(barcodeFormat)
+                    )
+                )
             }
         }
 
@@ -135,6 +201,46 @@ object WearSync {
 
             override fun writeTo(dataMap: DataMap) {
                 dataMap.putString(KEY_JSON_PAYLOAD, jsonPayload)
+            }
+
+            override fun toCorePayload(): CorePassPayload {
+                val json = runCatching { JSONObject(jsonPayload) }.getOrNull()
+                val fields = mutableMapOf<String, String>()
+                json?.let { payload ->
+                    val keys = payload.keys()
+                    while (keys.hasNext()) {
+                        val key = keys.next()
+                        val value = payload.optString(key)
+                        if (!value.isNullOrBlank()) {
+                            fields[key] = value
+                        }
+                    }
+                }
+                val cardNumber = json?.optString("cardNumber").takeIf { !it.isNullOrBlank() } ?: cardId
+                val balance = json?.optString("balance").takeIf { !it.isNullOrBlank() }
+                val lastUpdated = json?.optString("lastUpdated").takeIf { !it.isNullOrBlank() }
+                val lastTransaction = json?.optString("lastTransaction").takeIf { !it.isNullOrBlank() }
+                val qrToken = json?.optString("qrToken").takeIf { !it.isNullOrBlank() }
+                val displayQr = json?.optBoolean("displayQr", !qrToken.isNullOrBlank()) ?: false
+                val title = json?.optString("title").takeIf { !it.isNullOrBlank() } ?: "Mensa Card"
+                val subtitle = json?.optString("subtitle").takeIf { !it.isNullOrBlank() } ?: balance
+                val updatedAt = json?.optLong("updatedAt", -1L)?.takeIf { it > 0 }
+
+                return CorePassPayload.MensaCard(
+                    id = cardId,
+                    cardNumber = cardNumber,
+                    balance = balance,
+                    lastUpdated = lastUpdated,
+                    lastTransaction = lastTransaction,
+                    title = title,
+                    subtitle = subtitle,
+                    description = json?.optString("description", null),
+                    updatedAtEpochMillis = updatedAt ?: timestamp,
+                    fields = fields,
+                    rawBytes = jsonPayload.toByteArray(Charsets.UTF_8),
+                    qrToken = qrToken,
+                    displayQr = displayQr
+                )
             }
         }
     }
@@ -187,7 +293,7 @@ object WearSync {
         }
 
         fun deutschlandTicket(
-            payload: DeutschlandTicketParser.Payload,
+            payload: CorePassPayload.DeutschlandTicket,
             jsonString: String
         ): PassPayload.DeutschlandTicket? {
             val barcodeBitmap = runCatching {

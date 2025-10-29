@@ -32,7 +32,7 @@ object DeutschlandTicketParser {
         return Result(payload = payload, json = json, jsonString = jsonString)
     }
 
-    fun buildPayload(json: JSONObject, fallbackId: String? = null): Payload? {
+    fun buildPayload(json: JSONObject, fallbackId: String? = null): PassPayload.DeutschlandTicket? {
         val serialNumber = json.optString("serialNumber").takeIf { it.isNotBlank() }
             ?: fallbackId
             ?: UUID.randomUUID().toString()
@@ -65,7 +65,14 @@ object DeutschlandTicketParser {
 
         val subtitle = description ?: organizationName
 
-        return Payload(
+        val fields = buildMap {
+            validFrom?.let { put("validFrom", it) }
+            validTo?.let { put("validUntil", it) }
+            expirationDate?.let { put("expirationDate", it) }
+            holder?.let { put("holder", it) }
+        }
+
+        return PassPayload.DeutschlandTicket(
             id = serialNumber,
             title = title,
             subtitle = subtitle,
@@ -74,7 +81,11 @@ object DeutschlandTicketParser {
             validFrom = validFrom,
             validTo = validTo,
             expirationDate = expirationDate,
-            holder = holder
+            holder = holder,
+            description = description,
+            updatedAtEpochMillis = System.currentTimeMillis(),
+            fields = fields,
+            displayQr = true
         )
     }
 
