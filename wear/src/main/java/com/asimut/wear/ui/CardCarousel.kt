@@ -29,15 +29,16 @@ import androidx.wear.compose.material.ScalingLazyColumn
 import androidx.wear.compose.material.ScalingLazyListScope
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.rememberScalingLazyListState
-import com.asimut.core.sync.PassPayload
+import com.asimut.core.model.PassPayload
+import com.asimut.wear.R
 import com.asimut.wear.data.CardRepository
+import com.asimut.wear.ui.components.BarcodeImage
 import com.asimut.wear.ui.components.CardField
 import com.asimut.wear.ui.components.DeutschlandTicketDetails
 import com.asimut.wear.ui.components.MensaCardDetails
 import com.asimut.wear.ui.components.QrCodeView
 import com.asimut.wear.ui.components.StudentCardDetails
 import com.asimut.wear.ui.components.Title
-import com.asimut.wear.R
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Star
@@ -117,7 +118,7 @@ private fun CardDetailPage(
                 )
             }
         }
-        entry.imageBytes?.let { bytes ->
+        entry.payload.imagePng?.let { bytes ->
             item("image") {
                 val bitmap = remember(bytes) {
                     BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
@@ -135,26 +136,44 @@ private fun CardDetailPage(
                 }
             }
         }
-        when (entry.payload.type) {
-            PassPayload.CardType.STUDENT_CARD -> StudentCardDetails(entry.payload)
-            PassPayload.CardType.DEUTSCHLANDTICKET -> DeutschlandTicketDetails(entry.payload)
-            PassPayload.CardType.MENSA_CARD -> MensaCardDetails(entry.payload)
-            else -> GenericCardDetails(entry.payload)
+        when (val payload = entry.payload) {
+            is PassPayload.StudentCard -> StudentCardDetails(payload)
+            is PassPayload.DeutschlandTicket -> DeutschlandTicketDetails(payload)
+            is PassPayload.MensaCard -> MensaCardDetails(payload)
+            is PassPayload.Generic -> GenericCardDetails(payload)
         }
-        entry.payload.barcode?.let { barcode ->
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                QrCodeView(barcode = barcode)
-            }
+        barcodeSection(entry.payload)
+    }
+}
+
+private fun ScalingLazyListScope.GenericCardDetails(payload: PassPayload.Generic) {
+    payload.fields.forEach { (key, value) ->
+        item(key) {
+            CardField(title = key, value = value)
         }
     }
 }
 
-@Composable
-private fun ScalingLazyListScope.GenericCardDetails(payload: PassPayload) {
-    payload.fields.forEach { (key, value) ->
-        item(key) {
-            CardField(title = key, value = value)
+private fun ScalingLazyListScope.barcodeSection(payload: PassPayload) {
+    if (!payload.displayQr) return
+    val barcode = payload.barcode
+    val barcodeBytes = barcode?.imagePng
+    val data = barcode?.data ?: payload.qrToken
+    when {
+        barcodeBytes != null -> {
+            item("barcode_image") {
+                BarcodeImage(bytes = barcodeBytes)
+            }
+        }
+
+        !data.isNullOrBlank() -> {
+            item("barcode_generator") {
+                Spacer(modifier = Modifier.height(8.dp))
+                QrCodeView(
+                    data = data,
+                    format = barcode?.format ?: PassPayload.Barcode.Format.QR_CODE
+                )
+            }
         }
     }
 }

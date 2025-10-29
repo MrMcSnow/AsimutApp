@@ -1,6 +1,7 @@
 package com.asimut.wear.ui.components
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
@@ -20,7 +21,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
-import com.asimut.core.sync.PassPayload
+import com.asimut.core.model.PassPayload
 import com.asimut.wear.R
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
@@ -67,57 +68,95 @@ fun CardField(title: String, value: String) {
     }
 }
 
-fun androidx.wear.compose.material.ScalingLazyListScope.StudentCardDetails(payload: PassPayload) {
-    val fields = payload.fields
-    val name = listOfNotNull(fields["firstName"], fields["lastName"]).joinToString(" ").trim()
+fun androidx.wear.compose.material.ScalingLazyListScope.StudentCardDetails(payload: PassPayload.StudentCard) {
+    val handledKeys = mutableSetOf<String>()
+    val name = listOfNotNull(payload.firstName, payload.lastName)
+        .filter { it.isNotBlank() }
+        .joinToString(" ")
     if (name.isNotEmpty()) {
         item("student_name") {
             CardField(title = stringResource(id = R.string.student_card_title), value = name)
         }
     }
-    fields["matrikelnummer"]?.let {
-        item("student_matrikel") { CardField(title = "Matrikelnummer", value = it) }
+    if (payload.matrikelnummer.isNotBlank()) {
+        handledKeys += "matrikelnummer"
+        item("student_matrikel") { CardField(title = "Matrikelnummer", value = payload.matrikelnummer) }
     }
-    fields["birthDate"]?.let {
-        item("student_birth") { CardField(title = "Birth date", value = it) }
+    if (payload.birthDate.isNotBlank()) {
+        handledKeys += "birthDate"
+        item("student_birth") { CardField(title = "Birth date", value = payload.birthDate) }
     }
-    fields["status"]?.let {
+    payload.status?.takeIf { it.isNotBlank() }?.let {
+        handledKeys += "status"
         item("student_status") { CardField(title = "Status", value = it) }
     }
+    payload.fields.filterKeys { it !in handledKeys }.forEach { (key, value) ->
+        item("student_$key") {
+            CardField(title = key.humanize(), value = value)
+        }
+    }
 }
 
-fun androidx.wear.compose.material.ScalingLazyListScope.DeutschlandTicketDetails(payload: PassPayload) {
-    val fields = payload.fields
-    fields["holder"]?.let {
+fun androidx.wear.compose.material.ScalingLazyListScope.DeutschlandTicketDetails(payload: PassPayload.DeutschlandTicket) {
+    payload.holder?.takeIf { it.isNotBlank() }?.let {
         item("dt_holder") { CardField(title = "Holder", value = it) }
     }
-    fields["validFrom"]?.let {
+    payload.validFrom?.takeIf { it.isNotBlank() }?.let {
         item("dt_from") { CardField(title = "Valid from", value = it) }
     }
-    fields["validUntil"]?.let {
+    payload.validTo?.takeIf { it.isNotBlank() }?.let {
         item("dt_until") { CardField(title = "Valid until", value = it) }
     }
-    fields["subscriptionId"]?.let {
-        item("dt_subscription") { CardField(title = "Subscription", value = it) }
+    payload.expirationDate?.takeIf { it.isNotBlank() }?.let {
+        item("dt_expiration") { CardField(title = "Expires", value = it) }
+    }
+    payload.fields.forEach { (key, value) ->
+        item("dt_$key") { CardField(title = key.humanize(), value = value) }
     }
 }
 
-fun androidx.wear.compose.material.ScalingLazyListScope.MensaCardDetails(payload: PassPayload) {
-    val fields = payload.fields
-    fields["balance"]?.let {
+fun androidx.wear.compose.material.ScalingLazyListScope.MensaCardDetails(payload: PassPayload.MensaCard) {
+    payload.balance?.takeIf { it.isNotBlank() }?.let {
         item("mensa_balance") { CardField(title = "Balance", value = it) }
     }
-    fields["cardNumber"]?.let {
+    payload.cardNumber.takeIf { it.isNotBlank() }?.let {
         item("mensa_card") { CardField(title = "Card number", value = it) }
     }
-    fields["lastTransaction"]?.let {
+    payload.lastTransaction?.takeIf { it.isNotBlank() }?.let {
         item("mensa_transaction") { CardField(title = "Last transaction", value = it) }
+    }
+    payload.lastUpdated?.takeIf { it.isNotBlank() }?.let {
+        item("mensa_updated") { CardField(title = "Updated", value = it) }
+    }
+    payload.fields.forEach { (key, value) ->
+        item("mensa_$key") { CardField(title = key.humanize(), value = value) }
     }
 }
 
 @Composable
-fun QrCodeView(barcode: PassPayload.Barcode, modifier: Modifier = Modifier) {
-    val bitmap = remember(barcode) { generateBarcodeBitmap(barcode) }
+fun BarcodeImage(bytes: ByteArray, modifier: Modifier = Modifier) {
+    val bitmap = remember(bytes) {
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+    }
+    bitmap?.let {
+        Image(
+            bitmap = it,
+            contentDescription = stringResource(id = R.string.qr_content_description),
+            modifier = modifier
+                .padding(horizontal = 12.dp)
+                .size(160.dp)
+                .clip(RoundedCornerShape(16.dp))
+        )
+    }
+}
+
+@Composable
+fun QrCodeView(
+    data: String,
+    format: PassPayload.Barcode.Format,
+    modifier: Modifier = Modifier
+) {
+    val bitmap = remember(data, format) { generateBarcodeBitmap(data, format) }
     bitmap?.let {
         Image(
             bitmap = it.asImageBitmap(),
@@ -130,16 +169,18 @@ fun QrCodeView(barcode: PassPayload.Barcode, modifier: Modifier = Modifier) {
     }
 }
 
-private fun generateBarcodeBitmap(barcode: PassPayload.Barcode): Bitmap? {
+private fun generateBarcodeBitmap(data: String, format: PassPayload.Barcode.Format): Bitmap? {
     return try {
-        val format = when (barcode.format) {
+        val zxingFormat = when (format) {
             PassPayload.Barcode.Format.QR_CODE -> BarcodeFormat.QR_CODE
             PassPayload.Barcode.Format.PDF_417 -> BarcodeFormat.PDF_417
             PassPayload.Barcode.Format.CODE_128 -> BarcodeFormat.CODE_128
+            PassPayload.Barcode.Format.AZTEC -> BarcodeFormat.AZTEC
+            PassPayload.Barcode.Format.UNKNOWN -> BarcodeFormat.QR_CODE
         }
         val writer = MultiFormatWriter()
         val size = 512
-        val bitMatrix = writer.encode(barcode.data, format, size, size)
+        val bitMatrix = writer.encode(data, zxingFormat, size, size)
         bitMatrix.toBitmap()
     } catch (error: WriterException) {
         null
@@ -156,4 +197,11 @@ private fun BitMatrix.toBitmap(): Bitmap {
         }
     }
     return bitmap
+}
+
+private fun String.humanize(): String {
+    val spaced = replace('_', ' ')
+    return spaced.replaceFirstChar { char ->
+        if (char.isLowerCase()) char.titlecase() else char.toString()
+    }
 }

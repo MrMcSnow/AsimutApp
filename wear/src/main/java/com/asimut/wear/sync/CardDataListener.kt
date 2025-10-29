@@ -1,8 +1,7 @@
 package com.asimut.wear.sync
 
 import android.net.Uri
-import com.asimut.core.sync.CardSyncContract
-import com.asimut.core.sync.PassPayload
+import com.asimut.core.model.PassPayload
 import com.asimut.wear.data.CardRepository
 import com.google.android.gms.wearable.Asset
 import com.google.android.gms.wearable.DataEvent
@@ -45,8 +44,11 @@ class CardDataListener : WearableListenerService() {
                 ?: return@launch
             val payload = runCatching { PassPayload.fromJson(payloadJson) }.getOrNull() ?: return@launch
             val asset = dataMapItem.dataMap.getAsset(CardSyncContract.KEY_IMAGE_ASSET)
+                ?: dataMapItem.dataMap.getAsset("studentPhoto")
+                ?: dataMapItem.dataMap.getAsset("barcodeBitmap")
             val imageBytes = asset?.let { loadAssetBytes(it) }
-            repository.saveCard(payload, imageBytes)
+            val payloadWithImage = payload.withImage(imageBytes)
+            repository.saveCard(payloadWithImage)
         }
     }
 
@@ -78,4 +80,11 @@ class CardDataListener : WearableListenerService() {
         super.onDestroy()
         serviceScope.cancel()
     }
+}
+
+private fun PassPayload.withImage(imageBytes: ByteArray?): PassPayload = when (this) {
+    is PassPayload.StudentCard -> copy(imagePng = imageBytes)
+    is PassPayload.DeutschlandTicket -> copy(imagePng = imageBytes)
+    is PassPayload.MensaCard -> copy(imagePng = imageBytes)
+    is PassPayload.Generic -> copy(imagePng = imageBytes)
 }

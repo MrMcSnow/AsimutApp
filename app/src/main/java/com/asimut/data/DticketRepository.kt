@@ -5,7 +5,7 @@ import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
-import com.asimut.data.DeutschlandTicketParser.Payload
+import com.asimut.core.model.PassPayload
 import com.asimut.sync.WearSync
 import org.json.JSONObject
 import java.io.File
@@ -29,7 +29,7 @@ object DticketRepository {
 
     fun savePassData(
         context: Context,
-        payload: Payload,
+        payload: PassPayload.DeutschlandTicket,
         passJson: String,
         pkpassPath: String,
         previewPath: String?
@@ -108,7 +108,7 @@ object DticketRepository {
         return WearSync.Factory.deutschlandTicket(payload, jsonString)
     }
 
-    private fun scheduleWearSync(context: Context, payload: Payload, passJson: String) {
+    private fun scheduleWearSync(context: Context, payload: PassPayload.DeutschlandTicket, passJson: String) {
         val appContext = context.applicationContext
         syncScope.launch {
             val wearPayload = WearSync.Factory.deutschlandTicket(payload, passJson)
