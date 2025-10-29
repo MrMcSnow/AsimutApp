@@ -15,3 +15,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "Asimut"
 include(":app")
+include(":wear")
+include(":core")
