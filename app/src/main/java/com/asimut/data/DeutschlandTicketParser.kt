@@ -1,5 +1,6 @@
 package com.asimut.data
 
+import com.asimut.core.model.PassPayload
 import com.asimut.models.Dticket
 import org.json.JSONException
 import org.json.JSONObject
@@ -14,33 +15,8 @@ import java.util.zip.ZipInputStream
 
 object DeutschlandTicketParser {
 
-    data class Payload(
-        val id: String,
-        val title: String,
-        val subtitle: String?,
-        val barcodeMessage: String,
-        val barcodeFormat: String,
-        val validFrom: String?,
-        val validTo: String?,
-        val expirationDate: String?,
-        val holder: String?
-    ) {
-        fun toTicket(pkpassPath: String) = Dticket(
-            id = id,
-            title = title,
-            subtitle = subtitle,
-            barcodeMessage = barcodeMessage,
-            barcodeFormat = barcodeFormat,
-            validFrom = validFrom,
-            validTo = validTo,
-            expirationDate = expirationDate,
-            holder = holder,
-            pkpassLocalPath = pkpassPath
-        )
-    }
-
     data class Result(
-        val payload: Payload,
+        val payload: PassPayload.DeutschlandTicket,
         val json: JSONObject,
         val jsonString: String
     )
@@ -80,7 +56,7 @@ object DeutschlandTicketParser {
 
         val subtitle = description ?: organizationName
 
-        val payload = Payload(
+        val payload = PassPayload.DeutschlandTicket(
             id = serialNumber,
             title = title,
             subtitle = subtitle,
@@ -220,3 +196,16 @@ object DeutschlandTicketParser {
         "dd.MM.yy"
     )
 }
+
+fun PassPayload.DeutschlandTicket.toTicket(pkpassPath: String) = Dticket(
+    id = id,
+    title = title,
+    subtitle = subtitle,
+    barcodeMessage = barcodeMessage,
+    barcodeFormat = barcodeFormat,
+    validFrom = validFrom,
+    validTo = validTo,
+    expirationDate = expirationDate,
+    holder = holder,
+    pkpassLocalPath = pkpassPath
+)

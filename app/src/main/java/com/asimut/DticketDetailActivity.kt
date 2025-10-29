@@ -12,7 +12,7 @@ import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
 import com.asimut.data.TicketsRepository
 import com.asimut.models.Dticket
-import com.asimut.util.BarcodeUtil
+import com.asimut.core.util.BarcodeUtil
 import com.google.android.material.button.MaterialButton
 import java.io.File
 
