@@ -12,6 +12,7 @@ import com.asimut.models.StudentCard
 import com.asimut.util.StudentCardRenderer
 import com.google.android.gms.wearable.Asset
 import com.google.android.gms.wearable.PutDataMapRequest
+import com.google.android.gms.wearable.PutDataRequest
 import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.tasks.await
 import org.json.JSONObject
@@ -37,15 +38,16 @@ class WearSync(private val context: Context) {
         pushCard(cardPayload.type, cardPayload.id, cardPayload.payloadBytes, cardPayload.imageBytes)
 
     suspend fun deleteCard(type: String, id: String) {
-        dataClient.deleteDataItems(cardUri(type, id)).await()
+        val uri = Uri.Builder()
+            .scheme(PutDataRequest.WEAR_URI_SCHEME)
+            .authority("*")
+            .path("${CardSyncContract.PATH_BASE}/$type/$id")
+            .build()
+
+        dataClient.deleteDataItems(uri).await()
     }
 
     suspend fun deleteCard(cardPayload: CardPayload) = deleteCard(cardPayload.type, cardPayload.id)
-
-    private fun cardUri(type: String, id: String): Uri {
-        val basePath = CardSyncContract.PATH_BASE.trimStart('/')
-        return Uri.parse("wear://*/$basePath/$type/$id")
-    }
 
     data class CardPayload(
         val type: String,
