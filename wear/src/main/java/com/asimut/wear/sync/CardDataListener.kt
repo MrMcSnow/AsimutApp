@@ -46,7 +46,7 @@ class CardDataListener : WearableListenerService() {
             val payload = runCatching { PassPayloadJson.fromBytes(payloadBytes) }.getOrNull() ?: return@launch
             val asset = dataMapItem.dataMap.getAsset(CardSyncContract.KEY_IMAGE)
             val imageBytes = asset?.let { loadAssetBytes(it) }
-                ?: dataMapItem.dataMap.getByteArray(CardSyncContract.KEY_IMAGE)
+                ?: dataMapItem.dataMap.getByteArray(CardSyncContract.KEY_IMAGE) // Legacy byte-array fallback
             val timestamp = dataMapItem.dataMap.getLong(CardSyncContract.KEY_TIMESTAMP, System.currentTimeMillis())
             repository.saveCard(payload, imageBytes, timestamp)
         }
