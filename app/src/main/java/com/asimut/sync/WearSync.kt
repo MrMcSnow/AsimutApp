@@ -38,16 +38,15 @@ class WearSync(private val context: Context) {
         pushCard(cardPayload.type, cardPayload.id, cardPayload.payloadBytes, cardPayload.imageBytes)
 
     suspend fun deleteCard(type: String, id: String) {
-        val uri = Uri.Builder()
-            .scheme("wear")
-            .authority("*")
-            .path("${CardSyncContract.PATH_BASE}/$type/$id")
-            .build()
-
-        dataClient.deleteDataItems(uri).await()
+        dataClient.deleteDataItems(cardUri(type, id)).await()
     }
 
     suspend fun deleteCard(cardPayload: CardPayload) = deleteCard(cardPayload.type, cardPayload.id)
+
+    private fun cardUri(type: String, id: String): Uri {
+        val basePath = CardSyncContract.PATH_BASE.trimStart('/')
+        return Uri.parse("wear://*/$basePath/$type/$id")
+    }
 
     data class CardPayload(
         val type: String,
