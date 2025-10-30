@@ -24,8 +24,11 @@ class WearSync(private val context: Context) {
     suspend fun pushCard(type: String, id: String, payload: ByteArray, image: ByteArray?) {
         val request = PutDataMapRequest.create("${CardSyncContract.PATH_BASE}/$type/$id").apply {
             dataMap.putByteArray(CardSyncContract.KEY_PAYLOAD, payload)
-            image?.let {
-                dataMap.putAsset(CardSyncContract.KEY_IMAGE, Asset.createFromBytes(it))
+            if (image != null) {
+                val asset = Asset.createFromBytes(image)
+                dataMap.putAsset(CardSyncContract.KEY_IMAGE, asset)
+            } else {
+                dataMap.remove(CardSyncContract.KEY_IMAGE)
             }
             dataMap.putLong(CardSyncContract.KEY_TIMESTAMP, System.currentTimeMillis())
         }.asPutDataRequest().setUrgent()
