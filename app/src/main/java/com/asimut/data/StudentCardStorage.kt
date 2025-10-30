@@ -88,6 +88,9 @@ class StudentCardStorage(context: Context) {
         if (getDefaultCardId() == id) {
             setDefaultCardId(cards.firstOrNull()?.id)
         }
+        wearScope.launch {
+            WearSync.from(appContext).deleteCard(WearSync.TYPE_STUDENT, id)
+        }
     }
 
     fun getCardById(id: String): StudentCard? {
