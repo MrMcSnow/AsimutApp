@@ -92,11 +92,18 @@ object DticketRepository {
     }
 
     fun clear(context: Context) {
+        val appContext = context.applicationContext
+        val ticketId = getTicketId(context)
         val previewPath = getPreviewPath(context)
         if (previewPath != null) {
             runCatching { File(previewPath).takeIf { it.exists() }?.delete() }
         }
         preferences(context).edit().clear().apply()
+        ticketId?.let { id ->
+            syncScope.launch {
+                WearSync.from(appContext).deleteCard(WearSync.TYPE_DEUTSCHLAND, id)
+            }
+        }
     }
 
     fun latestWearPayload(context: Context): WearSync.CardPayload? {

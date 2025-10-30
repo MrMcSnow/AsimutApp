@@ -2,6 +2,7 @@ package com.asimut.sync
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.net.Uri
 import android.util.Log
 import com.asimut.core.model.PassPayload
 import com.asimut.core.model.encodeToBytes
@@ -35,6 +36,18 @@ class WearSync(private val context: Context) {
 
     suspend fun pushCard(cardPayload: CardPayload) =
         pushCard(cardPayload.type, cardPayload.id, cardPayload.payloadBytes, cardPayload.imageBytes)
+
+    suspend fun deleteCard(type: String, id: String) {
+        val uri = Uri.Builder()
+            .scheme("wear")
+            .authority("*")
+            .path("${CardSyncContract.PATH_BASE}/$type/$id")
+            .build()
+
+        dataClient.deleteDataItems(uri).await()
+    }
+
+    suspend fun deleteCard(cardPayload: CardPayload) = deleteCard(cardPayload.type, cardPayload.id)
 
     data class CardPayload(
         val type: String,
