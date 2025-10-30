@@ -569,7 +569,7 @@ class CardManagementActivity : AppCompatActivity() {
                     }
                 }
 
-                val ticket = payload.toTicket(finalFile.absolutePath)
+                val ticket = parserResult.toTicket(finalFile.absolutePath)
 
                 val existingTickets = ticketsRepository.getAllTickets()
                 existingTickets.forEach { existing ->
@@ -582,7 +582,7 @@ class CardManagementActivity : AppCompatActivity() {
                     throw IllegalStateException("Ticket limit reached")
                 }
 
-                val previewBitmap = BarcodeUtil.generateCode(payload.barcodeMessage, payload.barcodeFormat, size = 900)
+                val previewBitmap = BarcodeUtil.generateCode(parserResult.barcodeMessage, parserResult.barcodeFormat, size = 900)
                 val previewPath = DticketRepository.savePreviewBitmap(this@CardManagementActivity, previewBitmap)
 
                 DticketRepository.savePassData(
@@ -590,7 +590,9 @@ class CardManagementActivity : AppCompatActivity() {
                     payload = payload,
                     passJson = parserResult.jsonString,
                     pkpassPath = finalFile.absolutePath,
-                    previewPath = previewPath
+                    previewPath = previewPath,
+                    barcodeMessage = parserResult.barcodeMessage,
+                    barcodeFormat = parserResult.barcodeFormat
                 )
 
                 createDeutschlandTicketCard(ticket, parserResult.json)

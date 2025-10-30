@@ -2,6 +2,8 @@ package com.asimut.wear.sync
 
 import android.net.Uri
 import com.asimut.core.model.PassPayload
+import com.asimut.core.model.PassPayloadJson
+import com.asimut.core.sync.CardSyncContract
 import com.asimut.wear.data.CardRepository
 import com.google.android.gms.wearable.Asset
 import com.google.android.gms.wearable.DataEvent
@@ -40,15 +42,14 @@ class CardDataListener : WearableListenerService() {
         val dataItem = event.dataItem
         serviceScope.launch {
             val dataMapItem = DataMapItem.fromDataItem(dataItem)
-            val payloadJson = dataMapItem.dataMap.getString(CardSyncContract.KEY_PAYLOAD_JSON)
+            val payloadBytes = dataMapItem.dataMap.getByteArray(CardSyncContract.KEY_PAYLOAD)
                 ?: return@launch
-            val payload = runCatching { PassPayload.fromJson(payloadJson) }.getOrNull() ?: return@launch
-            val asset = dataMapItem.dataMap.getAsset(CardSyncContract.KEY_IMAGE_ASSET)
-                ?: dataMapItem.dataMap.getAsset("studentPhoto")
-                ?: dataMapItem.dataMap.getAsset("barcodeBitmap")
+            val payload = runCatching { PassPayloadJson.fromBytes(payloadBytes) }.getOrNull() ?: return@launch
+            val asset = dataMapItem.dataMap.getAsset(CardSyncContract.KEY_IMAGE)
             val imageBytes = asset?.let { loadAssetBytes(it) }
-            val payloadWithImage = payload.withImage(imageBytes)
-            repository.saveCard(payloadWithImage)
+                ?: dataMapItem.dataMap.getByteArray(CardSyncContract.KEY_IMAGE)
+            val timestamp = dataMapItem.dataMap.getLong(CardSyncContract.KEY_TIMESTAMP, System.currentTimeMillis())
+            repository.saveCard(payload, imageBytes, timestamp)
         }
     }
 
@@ -80,11 +81,4 @@ class CardDataListener : WearableListenerService() {
         super.onDestroy()
         serviceScope.cancel()
     }
-}
-
-private fun PassPayload.withImage(imageBytes: ByteArray?): PassPayload = when (this) {
-    is PassPayload.StudentCard -> copy(imagePng = imageBytes)
-    is PassPayload.DeutschlandTicket -> copy(imagePng = imageBytes)
-    is PassPayload.MensaCard -> copy(imagePng = imageBytes)
-    is PassPayload.Generic -> copy(imagePng = imageBytes)
 }

@@ -1,5 +1,7 @@
 package com.asimut.wear.ui
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -9,6 +11,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarOutline
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -33,18 +39,12 @@ import com.asimut.core.model.PassPayload
 import com.asimut.wear.R
 import com.asimut.wear.data.CardRepository
 import com.asimut.wear.ui.components.BarcodeImage
-import com.asimut.wear.ui.components.CardField
-import com.asimut.wear.ui.components.DeutschlandTicketDetails
-import com.asimut.wear.ui.components.MensaCardDetails
 import com.asimut.wear.ui.components.QrCodeView
-import com.asimut.wear.ui.components.StudentCardDetails
 import com.asimut.wear.ui.components.Title
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material.icons.rounded.StarOutline
-import android.graphics.BitmapFactory
-import androidx.compose.foundation.Image
+import com.asimut.wear.ui.components.deutschlandTicketDetails
+import com.asimut.wear.ui.components.mensaCardDetails
+import com.asimut.wear.ui.components.studentCardDetails
+import kotlin.text.Charsets
 
 @OptIn(ExperimentalWearFoundationApi::class)
 @Composable
@@ -58,6 +58,10 @@ fun CardCarousel(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize()) {
+        if (cards.isEmpty()) {
+            return
+        }
+
         HorizontalPager(
             state = pagerState,
             modifier = Modifier
@@ -118,10 +122,24 @@ private fun CardDetailPage(
                 )
             }
         }
-        entry.payload.imagePng?.let { bytes ->
-            item("image") {
-                val bitmap = remember(bytes) {
-                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+        studentCardImage(entry)
+        when (val payload = entry.payload) {
+            is PassPayload.StudentCard -> studentCardDetails(payload)
+            is PassPayload.DeutschlandTicket -> deutschlandTicketDetails(payload)
+            is PassPayload.MensaCard -> mensaCardDetails(payload)
+        }
+        barcodeSection(entry)
+    }
+}
+
+private fun ScalingLazyListScope.studentCardImage(entry: CardRepository.CardEntry) {
+    val payload = entry.payload
+    if (payload is PassPayload.StudentCard) {
+        val photoBytes = payload.imagePng ?: entry.imageBytes
+        if (photoBytes != null) {
+            item("student_photo") {
+                val bitmap = remember(photoBytes) {
+                    BitmapFactory.decodeByteArray(photoBytes, 0, photoBytes.size)?.asImageBitmap()
                 }
                 bitmap?.let {
                     Image(
@@ -136,45 +154,34 @@ private fun CardDetailPage(
                 }
             }
         }
-        when (val payload = entry.payload) {
-            is PassPayload.StudentCard -> StudentCardDetails(payload)
-            is PassPayload.DeutschlandTicket -> DeutschlandTicketDetails(payload)
-            is PassPayload.MensaCard -> MensaCardDetails(payload)
-            is PassPayload.Generic -> GenericCardDetails(payload)
-        }
-        barcodeSection(entry.payload)
     }
 }
 
-private fun ScalingLazyListScope.GenericCardDetails(payload: PassPayload.Generic) {
-    payload.fields.forEach { (key, value) ->
-        item(key) {
-            CardField(title = key, value = value)
-        }
-    }
-}
-
-private fun ScalingLazyListScope.barcodeSection(payload: PassPayload) {
-    if (!payload.displayQr) return
-    val barcode = payload.barcode
-    val barcodeBytes = barcode?.imagePng
-    val data = barcode?.data ?: payload.qrToken
-    when {
-        barcodeBytes != null -> {
-            item("barcode_image") {
-                BarcodeImage(bytes = barcodeBytes)
+private fun ScalingLazyListScope.barcodeSection(entry: CardRepository.CardEntry) {
+    when (val payload = entry.payload) {
+        is PassPayload.DeutschlandTicket -> {
+            val imageBytes = entry.imageBytes
+            val raw = payload.rawBytes?.toString(Charsets.UTF_8)
+            if (imageBytes != null) {
+                item("dt_barcode") {
+                    BarcodeImage(bytes = imageBytes)
+                }
+            } else if (!raw.isNullOrBlank() && payload.displayQr) {
+                item("dt_qr") {
+                    QrCodeView(data = raw)
+                }
             }
         }
 
-        !data.isNullOrBlank() -> {
-            item("barcode_generator") {
-                Spacer(modifier = Modifier.height(8.dp))
-                QrCodeView(
-                    data = data,
-                    format = barcode?.format ?: PassPayload.Barcode.Format.QR_CODE
-                )
+        is PassPayload.MensaCard -> {
+            payload.qrToken?.takeIf { it.isNotBlank() }?.let { token ->
+                item("mensa_qr") {
+                    QrCodeView(data = token)
+                }
             }
         }
+
+        is PassPayload.StudentCard -> Unit
     }
 }
 
@@ -184,7 +191,10 @@ private fun CardHeader(entry: CardRepository.CardEntry, onSetPrimary: () -> Unit
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Title(text = entry.payload.title, subtitle = entry.payload.subtitle)
+        Title(
+            text = entry.payload.displayTitle(),
+            subtitle = entry.payload.displaySubtitle()
+        )
         entry.lastUpdatedText?.let { updated ->
             Text(
                 text = stringResource(id = R.string.last_updated, updated),
@@ -200,12 +210,26 @@ private fun CardHeader(entry: CardRepository.CardEntry, onSetPrimary: () -> Unit
 
 @Composable
 private fun PrimaryToggleButton(isPrimary: Boolean, onClick: () -> Unit) {
-    val icon = if (isPrimary) Icons.Rounded.Star else Icons.Rounded.StarOutline
-    val contentColor = if (isPrimary) MaterialTheme.colors.primary else MaterialTheme.colors.onBackground
-    IconButton(
-        onClick = onClick,
-        modifier = Modifier.size(36.dp)
-    ) {
-        Icon(imageVector = icon, contentDescription = null, tint = contentColor)
+    IconButton(onClick = onClick) {
+        val icon = if (isPrimary) Icons.Rounded.Star else Icons.Rounded.StarOutline
+        Icon(imageVector = icon, contentDescription = null)
     }
 }
+
+@Composable
+private fun PassPayload.displayTitle(): String = when (this) {
+    is PassPayload.StudentCard -> listOf(firstName, lastName)
+        .filter { it.isNotBlank() }
+        .joinToString(" ")
+        .ifBlank { stringResource(id = R.string.student_card_title) }
+
+    is PassPayload.DeutschlandTicket -> stringResource(id = R.string.deutschland_ticket_title)
+    is PassPayload.MensaCard -> stringResource(id = R.string.mensa_card_title)
+}
+
+private fun PassPayload.displaySubtitle(): String? = when (this) {
+    is PassPayload.StudentCard -> matrikelnummer.takeIf { it.isNotBlank() }
+    is PassPayload.DeutschlandTicket -> holderName.takeIf { it.isNotBlank() }
+    is PassPayload.MensaCard -> holderName.takeIf { it.isNotBlank() }
+}
+

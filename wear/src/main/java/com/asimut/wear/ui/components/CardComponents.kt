@@ -21,12 +21,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
+import androidx.wear.compose.material.ScalingLazyListScope
 import com.asimut.core.model.PassPayload
 import com.asimut.wear.R
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import com.google.zxing.WriterException
 import com.google.zxing.common.BitMatrix
+import java.text.NumberFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun Title(text: String, subtitle: String?) {
@@ -68,68 +74,63 @@ fun CardField(title: String, value: String) {
     }
 }
 
-fun androidx.wear.compose.material.ScalingLazyListScope.StudentCardDetails(payload: PassPayload.StudentCard) {
-    val handledKeys = mutableSetOf<String>()
-    val name = listOfNotNull(payload.firstName, payload.lastName)
-        .filter { it.isNotBlank() }
-        .joinToString(" ")
-    if (name.isNotEmpty()) {
+fun ScalingLazyListScope.studentCardDetails(payload: PassPayload.StudentCard) {
+    if (payload.firstName.isNotBlank() || payload.lastName.isNotBlank()) {
         item("student_name") {
-            CardField(title = stringResource(id = R.string.student_card_title), value = name)
+            CardField(
+                title = stringResource(id = R.string.student_card_title),
+                value = listOf(payload.firstName, payload.lastName)
+                    .filter { it.isNotBlank() }
+                    .joinToString(" ")
+            )
         }
     }
     if (payload.matrikelnummer.isNotBlank()) {
-        handledKeys += "matrikelnummer"
-        item("student_matrikel") { CardField(title = "Matrikelnummer", value = payload.matrikelnummer) }
+        item("student_matrikel") {
+            CardField(title = stringResource(id = R.string.student_card_number), value = payload.matrikelnummer)
+        }
     }
     if (payload.birthDate.isNotBlank()) {
-        handledKeys += "birthDate"
-        item("student_birth") { CardField(title = "Birth date", value = payload.birthDate) }
-    }
-    payload.status?.takeIf { it.isNotBlank() }?.let {
-        handledKeys += "status"
-        item("student_status") { CardField(title = "Status", value = it) }
-    }
-    payload.fields.filterKeys { it !in handledKeys }.forEach { (key, value) ->
-        item("student_$key") {
-            CardField(title = key.humanize(), value = value)
+        item("student_birth") {
+            CardField(title = stringResource(id = R.string.student_card_birthdate), value = payload.birthDate)
         }
     }
 }
 
-fun androidx.wear.compose.material.ScalingLazyListScope.DeutschlandTicketDetails(payload: PassPayload.DeutschlandTicket) {
-    payload.holder?.takeIf { it.isNotBlank() }?.let {
-        item("dt_holder") { CardField(title = "Holder", value = it) }
+fun ScalingLazyListScope.deutschlandTicketDetails(payload: PassPayload.DeutschlandTicket) {
+    payload.holderName.takeIf { it.isNotBlank() }?.let { holder ->
+        item("dt_holder") {
+            CardField(title = stringResource(id = R.string.deutschlandticket_holder), value = holder)
+        }
     }
-    payload.validFrom?.takeIf { it.isNotBlank() }?.let {
-        item("dt_from") { CardField(title = "Valid from", value = it) }
+    payload.validFrom.formatDate()?.let { from ->
+        item("dt_valid_from") {
+            CardField(title = stringResource(id = R.string.deutschlandticket_valid_from), value = from)
+        }
     }
-    payload.validTo?.takeIf { it.isNotBlank() }?.let {
-        item("dt_until") { CardField(title = "Valid until", value = it) }
-    }
-    payload.expirationDate?.takeIf { it.isNotBlank() }?.let {
-        item("dt_expiration") { CardField(title = "Expires", value = it) }
-    }
-    payload.fields.forEach { (key, value) ->
-        item("dt_$key") { CardField(title = key.humanize(), value = value) }
+    payload.validTo.formatDate()?.let { to ->
+        item("dt_valid_to") {
+            CardField(title = stringResource(id = R.string.deutschlandticket_valid_to), value = to)
+        }
     }
 }
 
-fun androidx.wear.compose.material.ScalingLazyListScope.MensaCardDetails(payload: PassPayload.MensaCard) {
-    payload.balance?.takeIf { it.isNotBlank() }?.let {
-        item("mensa_balance") { CardField(title = "Balance", value = it) }
+fun ScalingLazyListScope.mensaCardDetails(payload: PassPayload.MensaCard) {
+    payload.holderName.takeIf { it.isNotBlank() }?.let { holder ->
+        item("mensa_holder") {
+            CardField(title = stringResource(id = R.string.mensa_holder), value = holder)
+        }
     }
-    payload.cardNumber.takeIf { it.isNotBlank() }?.let {
-        item("mensa_card") { CardField(title = "Card number", value = it) }
+    item("mensa_balance") {
+        CardField(
+            title = stringResource(id = R.string.mensa_balance),
+            value = formatCurrency(payload.balance)
+        )
     }
-    payload.lastTransaction?.takeIf { it.isNotBlank() }?.let {
-        item("mensa_transaction") { CardField(title = "Last transaction", value = it) }
-    }
-    payload.lastUpdated?.takeIf { it.isNotBlank() }?.let {
-        item("mensa_updated") { CardField(title = "Updated", value = it) }
-    }
-    payload.fields.forEach { (key, value) ->
-        item("mensa_$key") { CardField(title = key.humanize(), value = value) }
+    payload.lastUpdated.formatDateTime()?.let { updated ->
+        item("mensa_updated") {
+            CardField(title = stringResource(id = R.string.mensa_last_updated), value = updated)
+        }
     }
 }
 
@@ -151,12 +152,8 @@ fun BarcodeImage(bytes: ByteArray, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun QrCodeView(
-    data: String,
-    format: PassPayload.Barcode.Format,
-    modifier: Modifier = Modifier
-) {
-    val bitmap = remember(data, format) { generateBarcodeBitmap(data, format) }
+fun QrCodeView(data: String, modifier: Modifier = Modifier) {
+    val bitmap = remember(data) { generateQrBitmap(data) }
     bitmap?.let {
         Image(
             bitmap = it.asImageBitmap(),
@@ -169,18 +166,11 @@ fun QrCodeView(
     }
 }
 
-private fun generateBarcodeBitmap(data: String, format: PassPayload.Barcode.Format): Bitmap? {
+private fun generateQrBitmap(data: String): Bitmap? {
     return try {
-        val zxingFormat = when (format) {
-            PassPayload.Barcode.Format.QR_CODE -> BarcodeFormat.QR_CODE
-            PassPayload.Barcode.Format.PDF_417 -> BarcodeFormat.PDF_417
-            PassPayload.Barcode.Format.CODE_128 -> BarcodeFormat.CODE_128
-            PassPayload.Barcode.Format.AZTEC -> BarcodeFormat.AZTEC
-            PassPayload.Barcode.Format.UNKNOWN -> BarcodeFormat.QR_CODE
-        }
         val writer = MultiFormatWriter()
         val size = 512
-        val bitMatrix = writer.encode(data, zxingFormat, size, size)
+        val bitMatrix = writer.encode(data, BarcodeFormat.QR_CODE, size, size)
         bitMatrix.toBitmap()
     } catch (error: WriterException) {
         null
@@ -199,9 +189,19 @@ private fun BitMatrix.toBitmap(): Bitmap {
     return bitmap
 }
 
-private fun String.humanize(): String {
-    val spaced = replace('_', ' ')
-    return spaced.replaceFirstChar { char ->
-        if (char.isLowerCase()) char.titlecase() else char.toString()
-    }
+private fun Long.formatDate(): String? {
+    if (this <= 0L) return null
+    val formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy").withZone(ZoneId.systemDefault())
+    return formatter.format(Instant.ofEpochMilli(this))
+}
+
+private fun Long.formatDateTime(): String? {
+    if (this <= 0L) return null
+    val formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm").withZone(ZoneId.systemDefault())
+    return formatter.format(Instant.ofEpochMilli(this))
+}
+
+private fun formatCurrency(value: Double): String {
+    val formatter = NumberFormat.getCurrencyInstance(Locale.GERMANY)
+    return formatter.format(value)
 }

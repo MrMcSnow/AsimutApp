@@ -83,10 +83,21 @@ class StudentCardStorage(context: Context) {
     }
 
     fun deleteCardById(id: String) {
-        val cards = getCards().filterNot { it.id == id }
+        val existingCards = getCards()
+        val removed = existingCards.any { it.id == id }
+        val cards = existingCards.filterNot { it.id == id }
         saveCards(cards)
         if (getDefaultCardId() == id) {
             setDefaultCardId(cards.firstOrNull()?.id)
+        }
+        if (removed) {
+            wearScope.launch {
+                runCatching {
+                    WearSync.from(appContext).deleteCard(WearSync.TYPE_STUDENT, id)
+                }.onFailure { error ->
+                    Log.w(TAG, "Failed to delete student card $id from Wear", error)
+                }
+            }
         }
     }
 
@@ -148,12 +159,13 @@ class StudentCardStorage(context: Context) {
 
     private fun syncCard(card: StudentCard) {
         wearScope.launch {
-            val payload = WearSync.Factory.studentCard(appContext, card, card.id == getDefaultCardId())
+            val wearSync = WearSync.from(appContext)
+            val payload = WearSync.Builder.studentCard(appContext, card)
             if (payload == null) {
                 Log.w(TAG, "Skipping wear sync for student card ${card.id}: payload serialization failed")
                 return@launch
             }
-            WearSync.pushCard(appContext, payload)
+            wearSync.pushCard(payload)
         }
     }
 
