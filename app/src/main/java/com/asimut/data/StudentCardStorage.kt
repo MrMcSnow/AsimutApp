@@ -83,10 +83,15 @@ class StudentCardStorage(context: Context) {
     }
 
     fun deleteCardById(id: String) {
-        val cards = getCards().filterNot { it.id == id }
-        saveCards(cards)
+        val currentCards = getCards()
+        val updatedCards = currentCards.filterNot { it.id == id }
+        if (updatedCards.size == currentCards.size) {
+            return
+        }
+
+        saveCards(updatedCards)
         if (getDefaultCardId() == id) {
-            setDefaultCardId(cards.firstOrNull()?.id)
+            setDefaultCardId(updatedCards.firstOrNull()?.id)
         }
         wearScope.launch {
             WearSync.from(appContext).deleteCard(WearSync.TYPE_STUDENT, id)
