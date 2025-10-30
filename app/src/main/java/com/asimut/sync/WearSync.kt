@@ -9,6 +9,7 @@ import com.asimut.core.sync.CardSyncContract
 import com.asimut.core.util.BarcodeUtil
 import com.asimut.models.StudentCard
 import com.asimut.util.StudentCardRenderer
+import com.google.android.gms.wearable.Asset
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.tasks.await
@@ -22,7 +23,10 @@ class WearSync(private val context: Context) {
     suspend fun pushCard(type: String, id: String, payload: ByteArray, image: ByteArray?) {
         val request = PutDataMapRequest.create("${CardSyncContract.PATH_BASE}/$type/$id").apply {
             dataMap.putByteArray(CardSyncContract.KEY_PAYLOAD, payload)
-            image?.let { dataMap.putByteArray(CardSyncContract.KEY_IMAGE, it) }
+            image?.let {
+                val asset = Asset.createFromBytes(it)
+                dataMap.putAsset(CardSyncContract.KEY_IMAGE, asset)
+            }
             dataMap.putLong(CardSyncContract.KEY_TIMESTAMP, System.currentTimeMillis())
         }.asPutDataRequest().setUrgent()
 
