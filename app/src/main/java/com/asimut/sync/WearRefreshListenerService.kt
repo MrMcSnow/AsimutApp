@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.asimut.core.sync.CardSyncContract
 import com.asimut.data.DticketRepository
+import com.asimut.data.MensaCardStorage
 import com.asimut.data.StudentCardStorage
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
@@ -57,6 +58,13 @@ class WearRefreshListenerService : WearableListenerService() {
             wearSync.pushCard(ticketPayload)
         } else {
             Log.d(TAG, "No Deutschlandticket payload available during wear refresh")
+        }
+
+        val mensaPayload = MensaCardStorage(appContext).latestWearPayload()
+        if (mensaPayload != null) {
+            wearSync.pushCard(mensaPayload)
+        } else {
+            Log.d(TAG, "No Mensa card payload available during wear refresh")
         }
     }
 

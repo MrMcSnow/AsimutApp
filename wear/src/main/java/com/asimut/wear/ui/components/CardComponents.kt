@@ -146,6 +146,20 @@ fun ScalingLazyListScope.mensaCardDetails(payload: PassPayload.MensaCard) {
             CardField(title = stringResource(id = R.string.mensa_last_updated), value = updated)
         }
     }
+    payload.nfcTagId?.takeIf { it.isNotBlank() }?.let { tagId ->
+        item("mensa_nfc_status") {
+            CardField(
+                title = stringResource(id = R.string.mensa_card_nfc_status),
+                value = stringResource(id = R.string.mensa_card_nfc_ready)
+            )
+        }
+        item("mensa_nfc_tag") {
+            CardField(
+                title = stringResource(id = R.string.mensa_card_nfc_tag_id),
+                value = tagId
+            )
+        }
+    }
 }
 
 @Composable

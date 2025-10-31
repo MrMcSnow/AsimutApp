@@ -31,7 +31,9 @@ sealed class PassPayload {
         val holderName: String,
         val balance: Double,
         val lastUpdated: Long,
-        val qrToken: String? = null
+        val qrToken: String? = null,
+        val nfcTagId: String? = null,
+        val nfcPayload: String? = null
     ) : PassPayload()
 
     companion object {
@@ -100,6 +102,8 @@ object PassPayloadJson {
                 json.put(KEY_BALANCE, payload.balance)
                 json.put(KEY_LAST_UPDATED, payload.lastUpdated)
                 payload.qrToken?.let { json.put(KEY_QR_TOKEN, it) }
+                payload.nfcTagId?.takeIf { it.isNotBlank() }?.let { json.put(KEY_NFC_TAG_ID, it) }
+                payload.nfcPayload?.takeIf { it.isNotBlank() }?.let { json.put(KEY_NFC_PAYLOAD, it) }
             }
         }
         return json
@@ -133,7 +137,9 @@ object PassPayloadJson {
                 holderName = json.optString(KEY_HOLDER, ""),
                 balance = json.optDouble(KEY_BALANCE, 0.0),
                 lastUpdated = json.optLong(KEY_LAST_UPDATED, 0L),
-                qrToken = json.optString(KEY_QR_TOKEN, null)
+                qrToken = json.optString(KEY_QR_TOKEN, null),
+                nfcTagId = json.optString(KEY_NFC_TAG_ID, null)?.takeIf { it.isNotBlank() },
+                nfcPayload = json.optString(KEY_NFC_PAYLOAD, null)?.takeIf { it.isNotBlank() }
             )
 
             else -> throw IllegalArgumentException("Unknown pass payload type: ${json.optString(KEY_TYPE)}")

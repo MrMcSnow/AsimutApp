@@ -14,6 +14,7 @@ import com.google.android.gms.wearable.Asset
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.PutDataRequest
 import com.google.android.gms.wearable.Wearable
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
 import org.json.JSONObject
@@ -136,6 +137,8 @@ class WearSync(private val context: Context) {
             val balance = json.optDouble("balance", Double.NaN)
             val lastUpdated = json.optLong("lastUpdated", System.currentTimeMillis())
             val qrToken = json.optString("qrToken", null)
+            val nfcTagId = json.optString("nfcTagId", null).takeIf { !it.isNullOrBlank() }
+            val nfcPayload = json.optString("nfcPayload", null).takeIf { !it.isNullOrBlank() }
 
             if (balance.isNaN()) {
                 Log.w(TAG, "Skipping Mensa card $cardId: missing balance field")
@@ -147,7 +150,9 @@ class WearSync(private val context: Context) {
                 holderName = holderName,
                 balance = balance,
                 lastUpdated = lastUpdated,
-                qrToken = qrToken
+                qrToken = qrToken,
+                nfcTagId = nfcTagId,
+                nfcPayload = nfcPayload
             )
 
             return CardPayload(
@@ -162,19 +167,23 @@ class WearSync(private val context: Context) {
     private suspend fun retryWithBackoff(action: String, type: String, id: String, block: suspend () -> Unit) {
         var delayMillis = INITIAL_BACKOFF_MS
         repeat(MAX_ATTEMPTS - 1) { attempt ->
-            runCatching { block() }
-                .onSuccess { return }
-                .onFailure { error ->
-                    Log.w(TAG, "Failed to $action $type card $id on attempt ${attempt + 1}", error)
-                }
+            try {
+                block()
+                return
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                Log.w(TAG, "Failed to $action $type card $id on attempt ${attempt + 1}", error)
+            }
             delay(delayMillis)
             delayMillis *= 2
         }
-        runCatching { block() }
-            .onFailure { error ->
-                Log.e(TAG, "Failed to $action $type card $id after $MAX_ATTEMPTS attempts", error)
-                throw error
-            }
+        try {
+            block()
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            Log.e(TAG, "Failed to $action $type card $id after $MAX_ATTEMPTS attempts", error)
+            throw error
+        }
     }
 
     companion object {
