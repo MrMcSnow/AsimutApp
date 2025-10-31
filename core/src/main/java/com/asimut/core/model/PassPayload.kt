@@ -12,7 +12,9 @@ sealed class PassPayload {
         val lastName: String,
         val matrikelnummer: String,
         val birthDate: String,
-        val imagePng: ByteArray?
+        val imagePng: ByteArray?,
+        val nfcTagId: String? = null,
+        val nfcPayload: String? = null
     ) : PassPayload()
 
     data class DeutschlandTicket(
@@ -62,6 +64,8 @@ object PassPayloadJson {
     private const val KEY_BALANCE = "balance"
     private const val KEY_LAST_UPDATED = "lastUpdated"
     private const val KEY_QR_TOKEN = "qrToken"
+    private const val KEY_NFC_TAG_ID = "nfcTagId"
+    private const val KEY_NFC_PAYLOAD = "nfcPayload"
 
     fun toBytes(payload: PassPayload): ByteArray =
         toJson(payload).toString().toByteArray(Charsets.UTF_8)
@@ -77,6 +81,8 @@ object PassPayloadJson {
                 json.put(KEY_MATRIKELNUMMER, payload.matrikelnummer)
                 json.put(KEY_BIRTH_DATE, payload.birthDate)
                 payload.imagePng?.let { json.put(KEY_IMAGE, it.toBase64()) }
+                payload.nfcTagId?.takeIf { it.isNotBlank() }?.let { json.put(KEY_NFC_TAG_ID, it) }
+                payload.nfcPayload?.takeIf { it.isNotBlank() }?.let { json.put(KEY_NFC_PAYLOAD, it) }
             }
 
             is PassPayload.DeutschlandTicket -> {
@@ -108,7 +114,9 @@ object PassPayloadJson {
                 lastName = json.optString(KEY_LAST_NAME, ""),
                 matrikelnummer = json.optString(KEY_MATRIKELNUMMER, ""),
                 birthDate = json.optString(KEY_BIRTH_DATE, ""),
-                imagePng = json.optString(KEY_IMAGE, null).fromBase64()
+                imagePng = json.optString(KEY_IMAGE, null).fromBase64(),
+                nfcTagId = json.optString(KEY_NFC_TAG_ID, null)?.takeIf { it.isNotBlank() },
+                nfcPayload = json.optString(KEY_NFC_PAYLOAD, null)?.takeIf { it.isNotBlank() }
             )
 
             TYPE_DEUTSCHLAND -> PassPayload.DeutschlandTicket(
