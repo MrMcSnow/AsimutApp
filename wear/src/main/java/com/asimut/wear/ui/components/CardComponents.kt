@@ -95,6 +95,20 @@ fun ScalingLazyListScope.studentCardDetails(payload: PassPayload.StudentCard) {
             CardField(title = stringResource(id = R.string.student_card_birthdate), value = payload.birthDate)
         }
     }
+    payload.nfcTagId?.takeIf { it.isNotBlank() }?.let { tagId ->
+        item("student_nfc_status") {
+            CardField(
+                title = stringResource(id = R.string.student_card_nfc_status),
+                value = stringResource(id = R.string.student_card_nfc_ready)
+            )
+        }
+        item("student_nfc_tag") {
+            CardField(
+                title = stringResource(id = R.string.student_card_nfc_tag_id),
+                value = tagId
+            )
+        }
+    }
 }
 
 fun ScalingLazyListScope.deutschlandTicketDetails(payload: PassPayload.DeutschlandTicket) {

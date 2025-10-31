@@ -7,6 +7,7 @@ import com.asimut.data.DticketRepository
 import com.asimut.data.StudentCardStorage
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
+import kotlin.text.Charsets
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -18,11 +19,23 @@ class WearRefreshListenerService : WearableListenerService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
-        if (messageEvent.path == REFRESH_PATH) {
-            scope.launch { resendLatestCards(applicationContext) }
-        } else {
-            super.onMessageReceived(messageEvent)
+        when (messageEvent.path) {
+            REFRESH_PATH -> {
+                scope.launch { resendLatestCards(applicationContext) }
+            }
+
+            CardSyncContract.PATH_SET_PRIMARY -> {
+                scope.launch { handlePrimaryCardUpdate(messageEvent.data) }
+            }
+
+            else -> super.onMessageReceived(messageEvent)
         }
+    }
+
+    private suspend fun handlePrimaryCardUpdate(rawData: ByteArray) {
+        val newId = rawData.toString(Charsets.UTF_8).takeIf { it.isNotBlank() }
+        val storage = StudentCardStorage(applicationContext)
+        storage.setDefaultCardId(newId)
     }
 
     private suspend fun resendLatestCards(context: Context) {

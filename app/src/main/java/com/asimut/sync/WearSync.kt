@@ -14,6 +14,7 @@ import com.google.android.gms.wearable.Asset
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.PutDataRequest
 import com.google.android.gms.wearable.Wearable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -23,17 +24,19 @@ class WearSync(private val context: Context) {
     private val dataClient = Wearable.getDataClient(context.applicationContext)
 
     suspend fun pushCard(type: String, id: String, payload: ByteArray, image: ByteArray?) {
-        val imageAsset = image?.let(Asset::createFromBytes)
+        retryWithBackoff("push", type, id) {
+            val imageAsset = image?.let(Asset::createFromBytes)
 
-        val request = PutDataMapRequest.create("${CardSyncContract.PATH_BASE}/$type/$id").apply {
-            dataMap.putByteArray(CardSyncContract.KEY_PAYLOAD, payload)
-            imageAsset?.let { asset ->
-                dataMap.putAsset(CardSyncContract.KEY_IMAGE, asset)
-            }
-            dataMap.putLong(CardSyncContract.KEY_TIMESTAMP, System.currentTimeMillis())
-        }.asPutDataRequest().setUrgent()
+            val request = PutDataMapRequest.create("${CardSyncContract.PATH_BASE}/$type/$id").apply {
+                dataMap.putByteArray(CardSyncContract.KEY_PAYLOAD, payload)
+                imageAsset?.let { asset ->
+                    dataMap.putAsset(CardSyncContract.KEY_IMAGE, asset)
+                }
+                dataMap.putLong(CardSyncContract.KEY_TIMESTAMP, System.currentTimeMillis())
+            }.asPutDataRequest().setUrgent()
 
-        dataClient.putDataItem(request).await()
+            dataClient.putDataItem(request).await()
+        }
     }
 
     suspend fun pushCard(cardPayload: CardPayload) =
@@ -46,7 +49,9 @@ class WearSync(private val context: Context) {
             .path("${CardSyncContract.PATH_BASE}/$type/$id")
             .build()
 
-        dataClient.deleteDataItems(uri).await()
+        retryWithBackoff("delete", type, id) {
+            dataClient.deleteDataItems(uri).await()
+        }
     }
 
     suspend fun deleteCard(cardPayload: CardPayload) = deleteCard(cardPayload.type, cardPayload.id)
@@ -86,7 +91,9 @@ class WearSync(private val context: Context) {
                 lastName = card.lastName,
                 matrikelnummer = card.matrikelnummer,
                 birthDate = card.birthDate,
-                imagePng = null
+                imagePng = null,
+                nfcTagId = card.nfcTagId,
+                nfcPayload = card.nfcPayload
             )
 
             return CardPayload(
@@ -152,8 +159,28 @@ class WearSync(private val context: Context) {
         }
     }
 
+    private suspend fun retryWithBackoff(action: String, type: String, id: String, block: suspend () -> Unit) {
+        var delayMillis = INITIAL_BACKOFF_MS
+        repeat(MAX_ATTEMPTS - 1) { attempt ->
+            runCatching { block() }
+                .onSuccess { return }
+                .onFailure { error ->
+                    Log.w(TAG, "Failed to $action $type card $id on attempt ${attempt + 1}", error)
+                }
+            delay(delayMillis)
+            delayMillis *= 2
+        }
+        runCatching { block() }
+            .onFailure { error ->
+                Log.e(TAG, "Failed to $action $type card $id after $MAX_ATTEMPTS attempts", error)
+                throw error
+            }
+    }
+
     companion object {
         private const val TAG = "WearSync"
+        private const val MAX_ATTEMPTS = 3
+        private const val INITIAL_BACKOFF_MS = 500L
 
         const val TYPE_STUDENT = "student"
         const val TYPE_DEUTSCHLAND = "deutschlandticket"
