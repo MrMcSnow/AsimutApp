@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.asimut"
+    namespace = "com.asimut.wear"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.asimut"
+        applicationId = "com.asimut.wear"
         minSdk = 26
         targetSdk = 34
         versionCode = 1_300_002
