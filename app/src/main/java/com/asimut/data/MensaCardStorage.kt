@@ -54,7 +54,10 @@ class MensaCardStorage(context: Context) {
             JSONObject(raw)
         } catch (error: JSONException) {
             Log.e(TAG, "Invalid Mensa card JSON", error)
-            preferences.edit().remove(KEY_CARD_JSON).apply()
+            preferences.edit()
+                .remove(KEY_CARD_JSON)
+                .remove(KEY_CARD_ID)
+                .apply()
             null
         }
     }
@@ -70,6 +73,7 @@ class MensaCardStorage(context: Context) {
             val payload = WearSync.Builder.mensaCard(cardId, json)
             if (payload == null) {
                 Log.w(TAG, "Skipping wear sync for Mensa card $cardId: payload serialization failed")
+                WearSync.from(appContext).deleteCard(WearSync.TYPE_MENSA, cardId)
                 return@launch
             }
             WearSync.from(appContext).pushCard(payload)

@@ -60,11 +60,18 @@ class WearRefreshListenerService : WearableListenerService() {
             Log.d(TAG, "No Deutschlandticket payload available during wear refresh")
         }
 
-        val mensaPayload = MensaCardStorage(appContext).latestWearPayload()
+        val mensaStorage = MensaCardStorage(appContext)
+        val mensaPayload = mensaStorage.latestWearPayload()
         if (mensaPayload != null) {
             wearSync.pushCard(mensaPayload)
         } else {
-            Log.d(TAG, "No Mensa card payload available during wear refresh")
+            val existingId = mensaStorage.getCardId()
+            if (existingId != null) {
+                Log.d(TAG, "Clearing Mensa card $existingId on wear refresh: no payload available")
+                wearSync.deleteCard(WearSync.TYPE_MENSA, existingId)
+            } else {
+                Log.d(TAG, "No Mensa card payload available during wear refresh")
+            }
         }
     }
 
