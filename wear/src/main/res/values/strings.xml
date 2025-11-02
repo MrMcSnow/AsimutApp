@@ -24,9 +24,8 @@
     <string name="pin_required">Unlock watch to view cards.</string>
     <string name="loading">Loading…</string>
     <string name="mensa_holder">Holder</string>
-    <string name="mensa_balance">Balance</string>
-    <string name="mensa_last_updated">Last updated</string>
     <string name="mensa_card_nfc_status">Mensa NFC</string>
     <string name="mensa_card_nfc_ready">Enabled for payments</string>
     <string name="mensa_card_nfc_tag_id">Tag ID</string>
+    <string name="mensa_card_nfc_missing">Configure NFC in the phone app</string>
 </resources>

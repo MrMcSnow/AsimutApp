@@ -103,15 +103,25 @@ class StudentCardStorage(context: Context) {
     }
 
     fun updateCardNfcData(cardId: String, tagId: String, payload: String?) {
-        val cards = getCards().map { card ->
+        val normalizedPayload = payload?.takeIf { it.isNotBlank() }
+        val cards = getCards()
+        val targetCard = cards.firstOrNull { it.id == cardId } ?: return
+        if (targetCard.nfcTagId == tagId && targetCard.nfcPayload == normalizedPayload) {
+            return
+        }
+
+        val updatedCards = cards.map { card ->
             if (card.id == cardId) {
-                card.copy(nfcTagId = tagId, nfcPayload = payload ?: card.nfcPayload)
+                card.copy(nfcTagId = tagId, nfcPayload = normalizedPayload ?: card.nfcPayload)
             } else {
                 card
             }
         }
-        saveCards(cards)
-        cards.firstOrNull { it.id == cardId }?.let { syncCard(it) }
+        saveCards(updatedCards)
+        updatedCards.firstOrNull { it.id == cardId }?.let { updated ->
+            syncCard(updated)
+            MensaCardStorage(appContext).updateNfcDataFromStudentCard(tagId, updated.nfcPayload)
+        }
     }
 
     fun getDefaultCardId(): String? = preferences.getString(KEY_DEFAULT_CARD_ID, null)
@@ -123,7 +133,10 @@ class StudentCardStorage(context: Context) {
             getCardById(id)?.let { syncCard(it) }
         }
         cardId?.let { id ->
-            getCardById(id)?.let { syncCard(it) }
+            getCardById(id)?.let { card ->
+                syncCard(card)
+                MensaCardStorage(appContext).updateNfcDataFromStudentCard(card.nfcTagId, card.nfcPayload)
+            }
         }
     }
 

@@ -28,11 +28,9 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import com.google.zxing.WriterException
 import com.google.zxing.common.BitMatrix
-import java.text.NumberFormat
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 @Composable
 fun Title(text: String, subtitle: String?) {
@@ -135,28 +133,23 @@ fun ScalingLazyListScope.mensaCardDetails(payload: PassPayload.MensaCard) {
             CardField(title = stringResource(id = R.string.mensa_holder), value = holder)
         }
     }
-    item("mensa_balance") {
+    val tagId = payload.nfcTagId?.takeIf { it.isNotBlank() }
+    item("mensa_nfc_status") {
+        val statusValue = if (tagId != null) {
+            stringResource(id = R.string.mensa_card_nfc_ready)
+        } else {
+            stringResource(id = R.string.mensa_card_nfc_missing)
+        }
         CardField(
-            title = stringResource(id = R.string.mensa_balance),
-            value = formatCurrency(payload.balance)
+            title = stringResource(id = R.string.mensa_card_nfc_status),
+            value = statusValue
         )
     }
-    payload.lastUpdated.formatDateTime()?.let { updated ->
-        item("mensa_updated") {
-            CardField(title = stringResource(id = R.string.mensa_last_updated), value = updated)
-        }
-    }
-    payload.nfcTagId?.takeIf { it.isNotBlank() }?.let { tagId ->
-        item("mensa_nfc_status") {
-            CardField(
-                title = stringResource(id = R.string.mensa_card_nfc_status),
-                value = stringResource(id = R.string.mensa_card_nfc_ready)
-            )
-        }
+    tagId?.let { id ->
         item("mensa_nfc_tag") {
             CardField(
                 title = stringResource(id = R.string.mensa_card_nfc_tag_id),
-                value = tagId
+                value = id
             )
         }
     }
@@ -223,13 +216,3 @@ private fun Long.formatDate(): String? {
     return formatter.format(Instant.ofEpochMilli(this))
 }
 
-private fun Long.formatDateTime(): String? {
-    if (this <= 0L) return null
-    val formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm").withZone(ZoneId.systemDefault())
-    return formatter.format(Instant.ofEpochMilli(this))
-}
-
-private fun formatCurrency(value: Double): String {
-    val formatter = NumberFormat.getCurrencyInstance(Locale.GERMANY)
-    return formatter.format(value)
-}
