@@ -3,6 +3,7 @@ package com.asimut.wear.sync
 import android.net.Uri
 import com.asimut.core.model.PassPayload
 import com.asimut.core.model.PassPayloadJson
+import com.asimut.core.sync.CardSyncContract
 import com.asimut.wear.data.CardRepository
 import com.google.android.gms.wearable.Asset
 import com.google.android.gms.wearable.DataEvent
