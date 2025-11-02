@@ -29,8 +29,9 @@ sealed class PassPayload {
     data class MensaCard(
         override val id: String,
         val holderName: String,
-        val balance: Double,
-        val lastUpdated: Long,
+        val balance: Double? = null,
+        val balanceDisplay: String? = null,
+        val lastUpdated: Long = 0L,
         val qrToken: String? = null,
         val nfcTagId: String? = null,
         val nfcPayload: String? = null
@@ -65,6 +66,7 @@ object PassPayloadJson {
 
     private const val KEY_BALANCE = "balance"
     private const val KEY_LAST_UPDATED = "lastUpdated"
+    private const val KEY_BALANCE_DISPLAY = "balanceDisplay"
     private const val KEY_QR_TOKEN = "qrToken"
     private const val KEY_NFC_TAG_ID = "nfcTagId"
     private const val KEY_NFC_PAYLOAD = "nfcPayload"
@@ -99,7 +101,8 @@ object PassPayloadJson {
             is PassPayload.MensaCard -> {
                 json.put(KEY_TYPE, TYPE_MENSA)
                 json.put(KEY_HOLDER, payload.holderName)
-                json.put(KEY_BALANCE, payload.balance)
+                payload.balance?.let { json.put(KEY_BALANCE, it) }
+                payload.balanceDisplay?.takeIf { it.isNotBlank() }?.let { json.put(KEY_BALANCE_DISPLAY, it) }
                 json.put(KEY_LAST_UPDATED, payload.lastUpdated)
                 payload.qrToken?.let { json.put(KEY_QR_TOKEN, it) }
                 payload.nfcTagId?.takeIf { it.isNotBlank() }?.let { json.put(KEY_NFC_TAG_ID, it) }
@@ -135,7 +138,9 @@ object PassPayloadJson {
             TYPE_MENSA -> PassPayload.MensaCard(
                 id = id,
                 holderName = json.optString(KEY_HOLDER, ""),
-                balance = json.optDouble(KEY_BALANCE, 0.0),
+                balance = json.readOptionalBalance(),
+                balanceDisplay = json.optString(KEY_BALANCE_DISPLAY, null)?.takeIf { it.isNotBlank() }
+                    ?: json.readBalanceAsString(),
                 lastUpdated = json.optLong(KEY_LAST_UPDATED, 0L),
                 qrToken = json.optString(KEY_QR_TOKEN, null),
                 nfcTagId = json.optString(KEY_NFC_TAG_ID, null)?.takeIf { it.isNotBlank() },
@@ -151,6 +156,30 @@ object PassPayloadJson {
 
     private fun ByteArray.toBase64(): String =
         Base64.encodeToString(this, Base64.NO_WRAP)
+
+    private fun JSONObject.readOptionalBalance(): Double? {
+        if (!has(KEY_BALANCE) || isNull(KEY_BALANCE)) {
+            return null
+        }
+        val raw = opt(KEY_BALANCE)
+        return when (raw) {
+            is Number -> raw.toDouble()
+            is String -> raw.toDoubleOrNull()
+            else -> null
+        }
+    }
+
+    private fun JSONObject.readBalanceAsString(): String? {
+        if (!has(KEY_BALANCE) || isNull(KEY_BALANCE)) {
+            return null
+        }
+        val raw = opt(KEY_BALANCE)
+        return when (raw) {
+            is String -> raw.takeIf { it.isNotBlank() }
+            is Number -> raw.toString()
+            else -> null
+        }
+    }
 
     private fun String?.fromBase64(): ByteArray? {
         if (this.isNullOrBlank()) return null

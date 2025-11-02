@@ -20,11 +20,9 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
-import java.text.NumberFormat
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 private const val RESOURCES_VERSION = "1"
 private const val RESOURCE_ID_TILE_ICON = "tile_icon"
@@ -150,12 +148,11 @@ private fun PassPayload.tileContent(context: CardTileService): String? = when (t
         }
     }
 
-    is PassPayload.MensaCard -> formatCurrency(balance)
-}
-
-private fun formatCurrency(amount: Double): String {
-    val formatter = NumberFormat.getCurrencyInstance(Locale.GERMANY)
-    return formatter.format(amount)
+    is PassPayload.MensaCard -> when {
+        !nfcTagId.isNullOrBlank() -> context.getString(R.string.mensa_card_nfc_ready)
+        holderName.isNotBlank() -> holderName
+        else -> null
+    }
 }
 
 private fun formatDate(epochMillis: Long): String {

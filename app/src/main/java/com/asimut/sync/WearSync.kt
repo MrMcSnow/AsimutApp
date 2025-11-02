@@ -134,21 +134,25 @@ class WearSync(private val context: Context) {
         fun mensaCard(cardId: String, json: JSONObject): CardPayload? {
             val holderName = json.optString("holderName")
                 .ifBlank { json.optString("name") }
-            val balance = json.optDouble("balance", Double.NaN)
+            val rawBalance = json.opt("balance")
+            val balance = when (rawBalance) {
+                is Number -> rawBalance.toDouble()
+                is String -> rawBalance.toDoubleOrNull()
+                else -> null
+            }
+            val balanceDisplay = json.optString("balanceDisplay", null).takeIf { !it.isNullOrBlank() }
+                ?: json.optString("balanceText", null).takeIf { !it.isNullOrBlank() }
+                ?: (rawBalance as? String)?.takeIf { it.isNotBlank() }
             val lastUpdated = json.optLong("lastUpdated", System.currentTimeMillis())
             val qrToken = json.optString("qrToken", null)
             val nfcTagId = json.optString("nfcTagId", null).takeIf { !it.isNullOrBlank() }
             val nfcPayload = json.optString("nfcPayload", null).takeIf { !it.isNullOrBlank() }
 
-            if (balance.isNaN()) {
-                Log.w(TAG, "Skipping Mensa card $cardId: missing balance field")
-                return null
-            }
-
             val payload = PassPayload.MensaCard(
                 id = cardId,
                 holderName = holderName,
                 balance = balance,
+                balanceDisplay = balanceDisplay,
                 lastUpdated = lastUpdated,
                 qrToken = qrToken,
                 nfcTagId = nfcTagId,
