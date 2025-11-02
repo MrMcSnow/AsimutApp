@@ -3,7 +3,6 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.NFC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
@@ -36,10 +35,6 @@
             android:screenOrientation="fullSensor"
             android:exported="true">
         </activity>
-
-        <activity
-            android:name=".StudentCardNfcCaptureActivity"
-            android:exported="false" />
 
         <activity
             android:name=".DticketDetailActivity"

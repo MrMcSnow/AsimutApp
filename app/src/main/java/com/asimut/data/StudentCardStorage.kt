@@ -35,8 +35,6 @@ class StudentCardStorage(context: Context) {
                 val lastName = json.optString(JSON_LAST_NAME)
                 val matrikelnummer = json.optString(JSON_MATRIKELNUMMER)
                 val birthDate = json.optString(JSON_BIRTH_DATE)
-                val nfcTagId = json.optString(JSON_NFC_TAG_ID).takeIf { !it.isNullOrBlank() }
-                val nfcPayload = json.optString(JSON_NFC_PAYLOAD).takeIf { !it.isNullOrBlank() }
                 if (id.isNullOrBlank() || matrikelnummer.isNullOrBlank()) continue
                 result.add(
                     StudentCard(
@@ -44,9 +42,7 @@ class StudentCardStorage(context: Context) {
                         firstName = firstName,
                         lastName = lastName,
                         matrikelnummer = matrikelnummer,
-                        birthDate = birthDate,
-                        nfcTagId = nfcTagId,
-                        nfcPayload = nfcPayload
+                        birthDate = birthDate
                     )
                 )
             }
@@ -102,28 +98,6 @@ class StudentCardStorage(context: Context) {
         return getCards().firstOrNull { it.id == id }
     }
 
-    fun updateCardNfcData(cardId: String, tagId: String, payload: String?) {
-        val normalizedPayload = payload?.takeIf { it.isNotBlank() }
-        val cards = getCards()
-        val targetCard = cards.firstOrNull { it.id == cardId } ?: return
-        if (targetCard.nfcTagId == tagId && targetCard.nfcPayload == normalizedPayload) {
-            return
-        }
-
-        val updatedCards = cards.map { card ->
-            if (card.id == cardId) {
-                card.copy(nfcTagId = tagId, nfcPayload = normalizedPayload ?: card.nfcPayload)
-            } else {
-                card
-            }
-        }
-        saveCards(updatedCards)
-        updatedCards.firstOrNull { it.id == cardId }?.let { updated ->
-            syncCard(updated)
-            MensaCardStorage(appContext).updateNfcDataFromStudentCard(tagId, updated.nfcPayload)
-        }
-    }
-
     fun getDefaultCardId(): String? = preferences.getString(KEY_DEFAULT_CARD_ID, null)
 
     fun setDefaultCardId(cardId: String?) {
@@ -135,7 +109,6 @@ class StudentCardStorage(context: Context) {
         cardId?.let { id ->
             getCardById(id)?.let { card ->
                 syncCard(card)
-                MensaCardStorage(appContext).updateNfcDataFromStudentCard(card.nfcTagId, card.nfcPayload)
             }
         }
     }
@@ -159,12 +132,27 @@ class StudentCardStorage(context: Context) {
                 put(JSON_LAST_NAME, card.lastName)
                 put(JSON_MATRIKELNUMMER, card.matrikelnummer)
                 put(JSON_BIRTH_DATE, card.birthDate)
-                card.nfcTagId?.let { put(JSON_NFC_TAG_ID, it) }
-                card.nfcPayload?.let { put(JSON_NFC_PAYLOAD, it) }
             }
             array.put(json)
         }
         preferences.edit().putString(KEY_STUDENT_CARDS, array.toString()).apply()
+    }
+
+    fun clear() {
+        val existingCards = getCards()
+        preferences.edit().remove(KEY_STUDENT_CARDS).remove(KEY_DEFAULT_CARD_ID).apply()
+        if (existingCards.isEmpty()) {
+            return
+        }
+        wearScope.launch {
+            val wearSync = WearSync.from(appContext)
+            existingCards.forEach { card ->
+                runCatching { wearSync.deleteCard(WearSync.TYPE_STUDENT, card.id) }
+                    .onFailure { error ->
+                        Log.w(TAG, "Failed to delete student card ${card.id} from wear during clear", error)
+                    }
+            }
+        }
     }
 
     private fun syncCard(card: StudentCard) {
@@ -189,7 +177,5 @@ class StudentCardStorage(context: Context) {
         private const val JSON_LAST_NAME = "lastName"
         private const val JSON_MATRIKELNUMMER = "matrikelnummer"
         private const val JSON_BIRTH_DATE = "birthDate"
-        private const val JSON_NFC_TAG_ID = "nfcTagId"
-        private const val JSON_NFC_PAYLOAD = "nfcPayload"
     }
 }

@@ -73,8 +73,7 @@ class WearSync(private val context: Context) {
                     lastName = card.lastName,
                     matrikelnummer = card.matrikelnummer,
                     birthDate = card.birthDate,
-                    showDefaultBadge = false,
-                    showNfcBadge = !card.nfcTagId.isNullOrBlank()
+                    showDefaultBadge = false
                 )
             }.getOrElse { error ->
                 Log.e(TAG, "Unable to render student card ${card.id}", error)
@@ -93,8 +92,8 @@ class WearSync(private val context: Context) {
                 matrikelnummer = card.matrikelnummer,
                 birthDate = card.birthDate,
                 imagePng = null,
-                nfcTagId = card.nfcTagId,
-                nfcPayload = card.nfcPayload
+                nfcTagId = null,
+                nfcPayload = null
             )
 
             return CardPayload(

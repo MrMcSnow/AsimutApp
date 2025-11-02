@@ -7,11 +7,9 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
-import android.nfc.NfcAdapter
 import android.view.View
 import android.widget.EditText
 import android.widget.ImageButton
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -26,21 +24,18 @@ import com.asimut.CardAdapter.CardItem
 import com.asimut.core.util.BarcodeUtil
 import com.asimut.data.DeutschlandTicketParser
 import com.asimut.data.DticketRepository
+import com.asimut.data.MensaCardStorage
 import com.asimut.data.StudentCardStorage
 import com.asimut.data.TicketsRepository
 import com.asimut.data.toTicket
 import com.asimut.models.Dticket
 import com.asimut.models.StudentCard
-import com.asimut.StudentCardNfcCaptureActivity
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.google.android.material.card.MaterialCardView
 import java.io.File
 import java.io.FileOutputStream
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -52,8 +47,6 @@ class CardManagementActivity : AppCompatActivity() {
     private lateinit var backButton: ImageButton
     private lateinit var cardRecyclerView: RecyclerView
     private lateinit var deleteHintButton: ImageButton
-    private lateinit var nfcStatusBanner: MaterialCardView
-    private lateinit var nfcStatusText: TextView
 
     private lateinit var studentCardStorage: StudentCardStorage
     private lateinit var ticketsRepository: TicketsRepository
@@ -63,28 +56,11 @@ class CardManagementActivity : AppCompatActivity() {
 
     private var isFabHiddenByScroll = false
     private var activeDialog: AlertDialog? = null
-    private var showNfcBannerOnce = false
-    private var nfcBannerHideJob: Job? = null
 
     private val pickDeutschlandTicketLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
                 handleDeutschlandTicketSelection(uri)
-            }
-        }
-
-    private val captureStudentCardLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == RESULT_OK) {
-                val cardId = result.data?.getStringExtra(StudentCardNfcCaptureActivity.EXTRA_CARD_ID)
-                val message = result.data?.getStringExtra(StudentCardNfcCaptureActivity.EXTRA_STATUS_MESSAGE)
-                val toastMessage = message ?: getString(R.string.student_card_nfc_saved_toast)
-                Toast.makeText(this, toastMessage, Toast.LENGTH_LONG).show()
-                maybePromptForDefaultPaymentSelection(cardId)
-                showNfcBannerOnce = true
-                loadCards()
-            } else {
-                loadCards()
             }
         }
 
@@ -94,15 +70,14 @@ class CardManagementActivity : AppCompatActivity() {
 
         studentCardStorage = StudentCardStorage(this)
         ticketsRepository = TicketsRepository(this)
+        clearOldCardsIfNeeded()
 
         backButton = findViewById(R.id.back_button)
         addCardFab = findViewById(R.id.add_card_fab)
         cardRecyclerView = findViewById(R.id.card_recycler_view)
         deleteHintButton = findViewById(R.id.delete_hint_button)
-        nfcStatusBanner = findViewById(R.id.nfc_status_banner)
-        nfcStatusText = findViewById(R.id.nfc_status_text)
 
-        cardAdapter = CardAdapter(cards, ::handleCardClick)
+        cardAdapter = CardAdapter(cards, ::handleCardClick, ::showManualCardInfoDialog)
         cardRecyclerView.layoutManager = LinearLayoutManager(this)
         cardRecyclerView.adapter = cardAdapter
         attachSwipeGestures()
@@ -134,8 +109,6 @@ class CardManagementActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        nfcBannerHideJob?.cancel()
-        nfcBannerHideJob = null
         activeDialog?.dismiss()
         super.onDestroy()
     }
@@ -282,8 +255,7 @@ class CardManagementActivity : AppCompatActivity() {
                 lastName = card.lastName,
                 matrikelnummer = card.matrikelnummer,
                 birthDate = card.birthDate,
-                isDefaultPayment = card.id == defaultCardId,
-                isNfcConfigured = !card.nfcTagId.isNullOrBlank()
+                isDefaultPayment = card.id == defaultCardId
             )
         }
 
@@ -294,8 +266,32 @@ class CardManagementActivity : AppCompatActivity() {
 
         cardAdapter.notifyDataSetChanged()
         updateFabVisibility()
-        val defaultCard = sortedStudentCards.firstOrNull { it.id == defaultCardId }
-        updateNfcStatusBanner(defaultCard)
+    }
+
+    private fun clearOldCardsIfNeeded() {
+        val prefs = getSharedPreferences(PREFS_APP, MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_CARDS_RESET_DONE, false)) {
+            return
+        }
+
+        studentCardStorage.clear()
+        MensaCardStorage(this).clear()
+        prefs.edit().putBoolean(KEY_CARDS_RESET_DONE, true).apply()
+        showCardsResetDialog()
+    }
+
+    private fun showCardsResetDialog() {
+        activeDialog?.dismiss()
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.cards_reset_dialog_title)
+            .setMessage(R.string.cards_reset_dialog_message)
+            .setPositiveButton(R.string.cards_reset_dialog_button) { dialogInterface, _ ->
+                dialogInterface.dismiss()
+            }
+            .create()
+        dialog.setOnDismissListener { if (activeDialog === dialog) activeDialog = null }
+        dialog.show()
+        activeDialog = dialog
     }
 
     private fun showDeleteConfirmation(position: Int) {
@@ -313,6 +309,20 @@ class CardManagementActivity : AppCompatActivity() {
             }
             .setOnCancelListener { cardAdapter.notifyItemChanged(position) }
             .show()
+    }
+
+    private fun showManualCardInfoDialog(@Suppress("UNUSED_PARAMETER") card: CardItem.StudentCard) {
+        activeDialog?.dismiss()
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.manual_card_info_title)
+            .setMessage(R.string.manual_card_info_message)
+            .setPositiveButton(R.string.manual_card_info_button) { dialogInterface, _ ->
+                dialogInterface.dismiss()
+            }
+            .create()
+        dialog.setOnDismissListener { if (activeDialog === dialog) activeDialog = null }
+        dialog.show()
+        activeDialog = dialog
     }
 
     private fun deleteCard(card: CardItem, position: Int) {
@@ -342,38 +352,6 @@ class CardManagementActivity : AppCompatActivity() {
     }
 
     private fun hasReachedLimit(): Boolean = cards.size >= MAX_CARDS
-
-    private fun updateNfcStatusBanner(defaultCard: StudentCard?) {
-        val hasActiveNfc = defaultCard?.nfcTagId?.isNotBlank() == true
-        val shouldShowBanner = showNfcBannerOnce && hasActiveNfc
-
-        if (shouldShowBanner && defaultCard != null) {
-            val displayName = listOf(defaultCard.firstName, defaultCard.lastName)
-                .filter { it.isNotBlank() }
-                .joinToString(" ")
-                .ifBlank { defaultCard.matrikelnummer }
-            nfcStatusText.text = getString(
-                R.string.student_card_nfc_active_banner,
-                displayName
-            )
-            nfcStatusBanner.isVisible = true
-
-            nfcBannerHideJob?.cancel()
-            nfcBannerHideJob = lifecycleScope.launch {
-                delay(NFC_BANNER_DISPLAY_DURATION)
-                nfcStatusBanner.isVisible = false
-                nfcStatusText.text = ""
-                showNfcBannerOnce = false
-                nfcBannerHideJob = null
-            }
-        } else {
-            nfcBannerHideJob?.cancel()
-            nfcBannerHideJob = null
-            nfcStatusBanner.isVisible = false
-            nfcStatusText.text = ""
-            showNfcBannerOnce = false
-        }
-    }
 
     private fun hideFabForScroll() {
         isFabHiddenByScroll = true
@@ -459,28 +437,9 @@ class CardManagementActivity : AppCompatActivity() {
         val card = studentCardStorage.createCard(firstName, lastName, matrikelnummer, birthDate)
         studentCardStorage.addCard(card)
         loadCards()
+        maybePromptForDefaultPaymentSelection(card.id)
         Toast.makeText(this, R.string.student_card_saved, Toast.LENGTH_SHORT).show()
-        if (isNfcSupported()) {
-            launchStudentCardNfcCapture(card)
-        } else {
-            Toast.makeText(this, R.string.nfc_not_supported, Toast.LENGTH_LONG).show()
-        }
     }
-
-    private fun launchStudentCardNfcCapture(card: StudentCard) {
-        if (!isNfcSupported()) {
-            return
-        }
-        val intent = StudentCardNfcCaptureActivity.createIntent(
-            context = this,
-            cardId = card.id,
-            firstName = card.firstName,
-            lastName = card.lastName
-        )
-        captureStudentCardLauncher.launch(intent)
-    }
-
-    private fun isNfcSupported(): Boolean = NfcAdapter.getDefaultAdapter(this) != null
 
     private fun maybePromptForDefaultPaymentSelection(preferredCardId: String?) {
         val studentCards = studentCardStorage.getCards()
@@ -739,6 +698,7 @@ class CardManagementActivity : AppCompatActivity() {
         private const val MIME_PKPASS = "application/vnd.apple.pkpass"
         private const val MIME_ZIP = "application/zip"
         private const val FAB_ANIMATION_DURATION = 200L
-        private const val NFC_BANNER_DISPLAY_DURATION = 5_000L
+        private const val PREFS_APP = "asimut_prefs"
+        private const val KEY_CARDS_RESET_DONE = "cards_reset_done"
     }
 }
