@@ -12,7 +12,9 @@ sealed class PassPayload {
         val lastName: String,
         val matrikelnummer: String,
         val birthDate: String,
-        val imagePng: ByteArray?
+        val imagePng: ByteArray?,
+        val nfcTagId: String? = null,
+        val nfcPayload: String? = null
     ) : PassPayload()
 
     data class DeutschlandTicket(
@@ -29,7 +31,9 @@ sealed class PassPayload {
         val holderName: String,
         val balance: Double,
         val lastUpdated: Long,
-        val qrToken: String? = null
+        val qrToken: String? = null,
+        val nfcTagId: String? = null,
+        val nfcPayload: String? = null
     ) : PassPayload()
 
     companion object {
@@ -62,6 +66,8 @@ object PassPayloadJson {
     private const val KEY_BALANCE = "balance"
     private const val KEY_LAST_UPDATED = "lastUpdated"
     private const val KEY_QR_TOKEN = "qrToken"
+    private const val KEY_NFC_TAG_ID = "nfcTagId"
+    private const val KEY_NFC_PAYLOAD = "nfcPayload"
 
     fun toBytes(payload: PassPayload): ByteArray =
         toJson(payload).toString().toByteArray(Charsets.UTF_8)
@@ -77,6 +83,8 @@ object PassPayloadJson {
                 json.put(KEY_MATRIKELNUMMER, payload.matrikelnummer)
                 json.put(KEY_BIRTH_DATE, payload.birthDate)
                 payload.imagePng?.let { json.put(KEY_IMAGE, it.toBase64()) }
+                payload.nfcTagId?.takeIf { it.isNotBlank() }?.let { json.put(KEY_NFC_TAG_ID, it) }
+                payload.nfcPayload?.takeIf { it.isNotBlank() }?.let { json.put(KEY_NFC_PAYLOAD, it) }
             }
 
             is PassPayload.DeutschlandTicket -> {
@@ -94,6 +102,8 @@ object PassPayloadJson {
                 json.put(KEY_BALANCE, payload.balance)
                 json.put(KEY_LAST_UPDATED, payload.lastUpdated)
                 payload.qrToken?.let { json.put(KEY_QR_TOKEN, it) }
+                payload.nfcTagId?.takeIf { it.isNotBlank() }?.let { json.put(KEY_NFC_TAG_ID, it) }
+                payload.nfcPayload?.takeIf { it.isNotBlank() }?.let { json.put(KEY_NFC_PAYLOAD, it) }
             }
         }
         return json
@@ -108,7 +118,9 @@ object PassPayloadJson {
                 lastName = json.optString(KEY_LAST_NAME, ""),
                 matrikelnummer = json.optString(KEY_MATRIKELNUMMER, ""),
                 birthDate = json.optString(KEY_BIRTH_DATE, ""),
-                imagePng = json.optString(KEY_IMAGE, null).fromBase64()
+                imagePng = json.optString(KEY_IMAGE, null).fromBase64(),
+                nfcTagId = json.optString(KEY_NFC_TAG_ID, null)?.takeIf { it.isNotBlank() },
+                nfcPayload = json.optString(KEY_NFC_PAYLOAD, null)?.takeIf { it.isNotBlank() }
             )
 
             TYPE_DEUTSCHLAND -> PassPayload.DeutschlandTicket(
@@ -125,7 +137,9 @@ object PassPayloadJson {
                 holderName = json.optString(KEY_HOLDER, ""),
                 balance = json.optDouble(KEY_BALANCE, 0.0),
                 lastUpdated = json.optLong(KEY_LAST_UPDATED, 0L),
-                qrToken = json.optString(KEY_QR_TOKEN, null)
+                qrToken = json.optString(KEY_QR_TOKEN, null),
+                nfcTagId = json.optString(KEY_NFC_TAG_ID, null)?.takeIf { it.isNotBlank() },
+                nfcPayload = json.optString(KEY_NFC_PAYLOAD, null)?.takeIf { it.isNotBlank() }
             )
 
             else -> throw IllegalArgumentException("Unknown pass payload type: ${json.optString(KEY_TYPE)}")

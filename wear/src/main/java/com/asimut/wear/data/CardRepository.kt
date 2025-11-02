@@ -4,6 +4,7 @@ import android.app.KeyguardManager
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Base64
+import android.util.Log
 import androidx.core.content.edit
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.preferencesKey
@@ -12,6 +13,8 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.asimut.core.model.PassPayload
 import com.asimut.core.model.PassPayloadJson
+import com.asimut.core.sync.CardSyncContract
+import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -21,7 +24,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlin.text.Charsets
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -77,6 +82,7 @@ class CardRepository private constructor(private val appContext: Context) {
                 prefs[PRIMARY_CARD_ID] = id
             }
         }
+        notifyPrimaryCardChanged(id)
     }
 
     fun ensurePrimaryCardExists() {
@@ -121,6 +127,32 @@ class CardRepository private constructor(private val appContext: Context) {
         cardsState.value = loadCardsInternal()
     }
 
+    private suspend fun notifyPrimaryCardChanged(id: String?) {
+        val targetPayload = id?.let { cardId ->
+            cardsState.value.firstOrNull { it.payload.id == cardId }?.payload
+        }
+        if (id != null && targetPayload !is PassPayload.StudentCard) {
+            return
+        }
+
+        val payloadBytes = (id ?: "").toByteArray(Charsets.UTF_8)
+        val nodeClient = Wearable.getNodeClient(appContext)
+        val nodes = runCatching { nodeClient.connectedNodes.await() }.getOrElse { error ->
+            Log.w(TAG, "Unable to fetch connected nodes for primary sync", error)
+            return
+        }
+        if (nodes.isEmpty()) return
+
+        val messageClient = Wearable.getMessageClient(appContext)
+        nodes.forEach { node ->
+            runCatching {
+                messageClient.sendMessage(node.id, CardSyncContract.PATH_SET_PRIMARY, payloadBytes).await()
+            }.onFailure { error ->
+                Log.w(TAG, "Failed to propagate primary card change to ${node.displayName}", error)
+            }
+        }
+    }
+
     private fun loadCardsInternal(): List<CardEntry> {
         val entries = prefs.all.mapNotNull { (_, value) ->
             if (value is String) {
@@ -143,6 +175,7 @@ class CardRepository private constructor(private val appContext: Context) {
 
     companion object {
         private val PRIMARY_CARD_ID = preferencesKey<String>("primary_card_id")
+        private const val TAG = "CardRepository"
 
         @Volatile
         private var INSTANCE: CardRepository? = null
@@ -167,6 +200,7 @@ class CardRepository private constructor(private val appContext: Context) {
         }
     }
 }
+
 
 private data class StoredCard(
     val payload: PassPayload,
