@@ -4,11 +4,9 @@ import android.content.Context
 import android.util.Log
 import com.asimut.core.sync.CardSyncContract
 import com.asimut.data.DticketRepository
-import com.asimut.data.MensaCardStorage
 import com.asimut.data.StudentCardStorage
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
-import kotlin.text.Charsets
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -25,18 +23,8 @@ class WearRefreshListenerService : WearableListenerService() {
                 scope.launch { resendLatestCards(applicationContext) }
             }
 
-            CardSyncContract.PATH_SET_PRIMARY -> {
-                scope.launch { handlePrimaryCardUpdate(messageEvent.data) }
-            }
-
             else -> super.onMessageReceived(messageEvent)
         }
-    }
-
-    private suspend fun handlePrimaryCardUpdate(rawData: ByteArray) {
-        val newId = rawData.toString(Charsets.UTF_8).takeIf { it.isNotBlank() }
-        val storage = StudentCardStorage(applicationContext)
-        storage.setDefaultCardId(newId)
     }
 
     private suspend fun resendLatestCards(context: Context) {
@@ -60,19 +48,7 @@ class WearRefreshListenerService : WearableListenerService() {
             Log.d(TAG, "No Deutschlandticket payload available during wear refresh")
         }
 
-        val mensaStorage = MensaCardStorage(appContext)
-        val mensaPayload = mensaStorage.latestWearPayload()
-        if (mensaPayload != null) {
-            wearSync.pushCard(mensaPayload)
-        } else {
-            val existingId = mensaStorage.getCardId()
-            if (existingId != null) {
-                Log.d(TAG, "Clearing Mensa card $existingId on wear refresh: no payload available")
-                wearSync.deleteCard(WearSync.TYPE_MENSA, existingId)
-            } else {
-                Log.d(TAG, "No Mensa card payload available during wear refresh")
-            }
-        }
+        Log.d(TAG, "Wear refresh completed: ${studentCards.size} manual cards synced")
     }
 
     override fun onDestroy() {

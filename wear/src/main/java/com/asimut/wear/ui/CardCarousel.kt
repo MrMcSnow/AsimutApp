@@ -4,17 +4,12 @@ import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material.icons.rounded.StarOutline
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -29,7 +24,6 @@ import androidx.wear.compose.foundation.pager.PagerState
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.Icon
-import androidx.wear.compose.material.IconButton
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.ScalingLazyColumn
 import androidx.wear.compose.material.ScalingLazyListScope
@@ -42,7 +36,6 @@ import com.asimut.wear.ui.components.BarcodeImage
 import com.asimut.wear.ui.components.QrCodeView
 import com.asimut.wear.ui.components.Title
 import com.asimut.wear.ui.components.deutschlandTicketDetails
-import com.asimut.wear.ui.components.mensaCardDetails
 import com.asimut.wear.ui.components.studentCardDetails
 import kotlin.text.Charsets
 
@@ -50,7 +43,6 @@ import kotlin.text.Charsets
 @Composable
 fun CardCarousel(
     cards: List<CardRepository.CardEntry>,
-    onSetPrimary: (String) -> Unit,
     pagerState: PagerState,
     onRefresh: () -> Unit,
     isRound: Boolean,
@@ -72,12 +64,9 @@ fun CardCarousel(
             CardDetailPage(
                 entry = entry,
                 isRound = isRound,
-                requiresUnlock = requiresUnlock,
-                onSetPrimary = { onSetPrimary(entry.payload.id) }
+                requiresUnlock = requiresUnlock
             )
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
 
         Chip(
             modifier = Modifier
@@ -98,7 +87,6 @@ private fun CardDetailPage(
     entry: CardRepository.CardEntry,
     isRound: Boolean,
     requiresUnlock: Boolean,
-    onSetPrimary: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberScalingLazyListState()
@@ -110,7 +98,7 @@ private fun CardDetailPage(
         state = listState
     ) {
         item {
-            CardHeader(entry = entry, onSetPrimary = onSetPrimary)
+            CardHeader(entry = entry)
         }
         if (requiresUnlock) {
             item("secure_notice") {
@@ -126,7 +114,6 @@ private fun CardDetailPage(
         when (val payload = entry.payload) {
             is PassPayload.StudentCard -> studentCardDetails(payload)
             is PassPayload.DeutschlandTicket -> deutschlandTicketDetails(payload)
-            is PassPayload.MensaCard -> mensaCardDetails(payload)
         }
         barcodeSection(entry)
     }
@@ -173,20 +160,12 @@ private fun ScalingLazyListScope.barcodeSection(entry: CardRepository.CardEntry)
             }
         }
 
-        is PassPayload.MensaCard -> {
-            payload.qrToken?.takeIf { it.isNotBlank() }?.let { token ->
-                item("mensa_qr") {
-                    QrCodeView(data = token)
-                }
-            }
-        }
-
         is PassPayload.StudentCard -> Unit
     }
 }
 
 @Composable
-private fun CardHeader(entry: CardRepository.CardEntry, onSetPrimary: () -> Unit) {
+private fun CardHeader(entry: CardRepository.CardEntry) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
@@ -203,16 +182,6 @@ private fun CardHeader(entry: CardRepository.CardEntry, onSetPrimary: () -> Unit
                 modifier = Modifier.padding(top = 2.dp)
             )
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        PrimaryToggleButton(isPrimary = entry.isPrimary, onClick = onSetPrimary)
-    }
-}
-
-@Composable
-private fun PrimaryToggleButton(isPrimary: Boolean, onClick: () -> Unit) {
-    IconButton(onClick = onClick) {
-        val icon = if (isPrimary) Icons.Rounded.Star else Icons.Rounded.StarOutline
-        Icon(imageVector = icon, contentDescription = null)
     }
 }
 
@@ -224,12 +193,10 @@ private fun PassPayload.displayTitle(): String = when (this) {
         .ifBlank { stringResource(id = R.string.student_card_title) }
 
     is PassPayload.DeutschlandTicket -> stringResource(id = R.string.deutschland_ticket_title)
-    is PassPayload.MensaCard -> stringResource(id = R.string.mensa_card_title)
 }
 
 private fun PassPayload.displaySubtitle(): String? = when (this) {
     is PassPayload.StudentCard -> matrikelnummer.takeIf { it.isNotBlank() }
     is PassPayload.DeutschlandTicket -> holderName.takeIf { it.isNotBlank() }
-    is PassPayload.MensaCard -> holderName.takeIf { it.isNotBlank() }
 }
 

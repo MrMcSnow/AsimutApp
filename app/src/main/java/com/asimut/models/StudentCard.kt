@@ -5,7 +5,5 @@ data class StudentCard(
     val firstName: String,
     val lastName: String,
     val matrikelnummer: String,
-    val birthDate: String,
-    val nfcTagId: String? = null,
-    val nfcPayload: String? = null
+    val birthDate: String
 )

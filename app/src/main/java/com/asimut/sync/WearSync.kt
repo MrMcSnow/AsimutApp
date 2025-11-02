@@ -17,7 +17,6 @@ import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.tasks.await
-import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 
 class WearSync(private val context: Context) {
@@ -72,9 +71,7 @@ class WearSync(private val context: Context) {
                     firstName = card.firstName,
                     lastName = card.lastName,
                     matrikelnummer = card.matrikelnummer,
-                    birthDate = card.birthDate,
-                    showDefaultBadge = false,
-                    showNfcBadge = !card.nfcTagId.isNullOrBlank()
+                    birthDate = card.birthDate
                 )
             }.getOrElse { error ->
                 Log.e(TAG, "Unable to render student card ${card.id}", error)
@@ -92,9 +89,7 @@ class WearSync(private val context: Context) {
                 lastName = card.lastName,
                 matrikelnummer = card.matrikelnummer,
                 birthDate = card.birthDate,
-                imagePng = null,
-                nfcTagId = card.nfcTagId,
-                nfcPayload = card.nfcPayload
+                imagePng = null
             )
 
             return CardPayload(
@@ -130,38 +125,6 @@ class WearSync(private val context: Context) {
                 imageBytes = imageBytes
             )
         }
-
-        fun mensaCard(cardId: String, json: JSONObject): CardPayload? {
-            val holderName = json.optString("holderName")
-                .ifBlank { json.optString("name") }
-            val balance = json.optDouble("balance", Double.NaN)
-            val lastUpdated = json.optLong("lastUpdated", System.currentTimeMillis())
-            val qrToken = json.optString("qrToken", null)
-            val nfcTagId = json.optString("nfcTagId", null).takeIf { !it.isNullOrBlank() }
-            val nfcPayload = json.optString("nfcPayload", null).takeIf { !it.isNullOrBlank() }
-
-            if (balance.isNaN()) {
-                Log.w(TAG, "Skipping Mensa card $cardId: missing balance field")
-                return null
-            }
-
-            val payload = PassPayload.MensaCard(
-                id = cardId,
-                holderName = holderName,
-                balance = balance,
-                lastUpdated = lastUpdated,
-                qrToken = qrToken,
-                nfcTagId = nfcTagId,
-                nfcPayload = nfcPayload
-            )
-
-            return CardPayload(
-                type = TYPE_MENSA,
-                id = cardId,
-                payloadBytes = payload.encodeToBytes(),
-                imageBytes = null
-            )
-        }
     }
 
     private suspend fun retryWithBackoff(action: String, type: String, id: String, block: suspend () -> Unit) {
@@ -193,7 +156,6 @@ class WearSync(private val context: Context) {
 
         const val TYPE_STUDENT = "student"
         const val TYPE_DEUTSCHLAND = "deutschlandticket"
-        const val TYPE_MENSA = "mensa"
 
         fun from(context: Context): WearSync = WearSync(context.applicationContext)
     }

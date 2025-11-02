@@ -16,7 +16,8 @@ import com.google.android.material.card.MaterialCardView
 
 class CardAdapter(
     private val items: List<CardItem>,
-    private val onItemClick: (CardItem) -> Unit
+    private val onItemClick: (CardItem) -> Unit,
+    private val onHelpClick: (CardItem.StudentCard) -> Unit
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     sealed class CardItem {
@@ -25,9 +26,7 @@ class CardAdapter(
             val firstName: String,
             val lastName: String,
             val matrikelnummer: String,
-            val birthDate: String,
-            val isDefaultPayment: Boolean,
-            val isNfcConfigured: Boolean
+            val birthDate: String
         ) : CardItem()
 
         data class DeutschlandTicketCard(
@@ -86,6 +85,7 @@ class CardAdapter(
     private inner class StudentCardViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val cardView: MaterialCardView = itemView as MaterialCardView
         private val cardImageView: ImageView = itemView.findViewById(R.id.card_image)
+        private val helpIcon: ImageView = itemView.findViewById(R.id.card_help_icon)
         private val renderer = StudentCardRenderer(itemView.context)
 
         fun bind(card: CardItem.StudentCard) {
@@ -93,20 +93,16 @@ class CardAdapter(
                 firstName = card.firstName,
                 lastName = card.lastName,
                 matrikelnummer = card.matrikelnummer,
-                birthDate = card.birthDate,
-                showDefaultBadge = card.isDefaultPayment,
-                showNfcBadge = card.isNfcConfigured
+                birthDate = card.birthDate
             )
             cardImageView.setImageBitmap(renderedBitmap)
 
             val context = itemView.context
-            val strokeWidth =
-                if (card.isDefaultPayment) context.resources.getDimensionPixelSize(R.dimen.student_card_default_stroke_width)
-                else 0
-            cardView.strokeWidth = strokeWidth
+            cardView.strokeWidth = 0
             cardView.strokeColor = ContextCompat.getColor(context, R.color.student_card_default_stroke)
 
             itemView.setOnClickListener { onItemClick(card) }
+            helpIcon.setOnClickListener { onHelpClick(card) }
         }
     }
 

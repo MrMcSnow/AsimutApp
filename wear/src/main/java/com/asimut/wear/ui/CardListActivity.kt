@@ -58,14 +58,12 @@ class CardListActivity : ComponentActivity() {
                 val isRound = configuration.isScreenRound
                 CardListScreen(
                     cards = cards,
-                    onSetPrimary = { id -> viewModel.setPrimary(id) },
                     onRefresh = { requestRefreshFromPhone() },
                     isRound = isRound,
                     requiresUnlock = requiresUnlock
                 )
             }
         }
-        viewModel.ensurePrimaryCard()
     }
 
     private fun requestRefreshFromPhone() {
@@ -84,7 +82,6 @@ class CardListActivity : ComponentActivity() {
 @Composable
 fun CardListScreen(
     cards: List<CardRepository.CardEntry>,
-    onSetPrimary: (String) -> Unit,
     onRefresh: () -> Unit,
     isRound: Boolean,
     requiresUnlock: Boolean,
@@ -109,7 +106,6 @@ fun CardListScreen(
         } else {
             CardCarousel(
                 cards = cards,
-                onSetPrimary = onSetPrimary,
                 pagerState = pagerState,
                 onRefresh = onRefresh,
                 isRound = isRound,

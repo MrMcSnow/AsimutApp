@@ -7,5 +7,4 @@
     <dimen name="card_expanded_elevation">8dp</dimen>
     <dimen name="swipe_background_radius">16dp</dimen>
     <dimen name="student_card_default_stroke_width">3dp</dimen>
-    <dimen name="card_swipe_default_text_size">16sp</dimen>
 </resources>

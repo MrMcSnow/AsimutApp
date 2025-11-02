@@ -1,7 +1,6 @@
 <resources>
     <string name="app_name">Asimut</string>
     <string name="menu_button_description">Open navigation drawer</string>
-    <string name="nfc_not_supported">NFC wird auf diesem Gerät nicht unterstützt. Manuelle Eingabe ist weiterhin möglich.</string>
     <string name="card_type_student">Studierendenausweis</string>
     <string name="card_type_deutschland_ticket">Deutschlandticket</string>
     <string name="card_type_prompt">Welche Karte möchtest du hinzufügen?</string>
@@ -39,27 +38,21 @@
     <string name="deutschlandticket_missing">Ticket nicht gefunden.</string>
     <string name="deutschlandticket_open_original">Originaldatei öffnen</string>
     <string name="student_card_validation_error">Bitte alle Felder ausfüllen.</string>
-    <string name="student_card_default_badge">Standard</string>
-    <string name="student_card_nfc_active_badge">NFC</string>
-    <string name="student_card_make_default_title">Standardkarte ändern</string>
-    <string name="student_card_make_default_message">Möchtest du %1$s %2$s als Standardkarte für Zahlungen festlegen?</string>
-    <string name="student_card_make_default_confirm">Als Standard festlegen</string>
-    <string name="student_card_make_default_success">Standardkarte aktualisiert.</string>
-    <string name="student_card_already_default">Diese Karte ist bereits als Standard hinterlegt.</string>
-    <string name="student_card_swipe_set_default_success">Als Standardkarte gespeichert.</string>
-    <string name="student_card_choose_default_title">Standardkarte auswählen</string>
-    <string name="student_card_choose_default_confirm">Speichern</string>
-    <string name="student_card_nfc_saved_toast">NFC-Daten wurden gespeichert.</string>
-    <string name="student_card_nfc_active_banner">NFC ist für %1$s aktiviert. Du kannst jetzt in der Mensa bezahlen.</string>
-    <string name="student_card_nfc_scan_title">Studierendenausweis scannen</string>
-    <string name="student_card_nfc_scan_instruction">Halte den Studierendenausweis an die Rückseite deines Geräts, um die NFC-Daten zu übernehmen.</string>
-    <string name="student_card_nfc_scan_waiting">Warte auf NFC-Karte …</string>
-    <string name="student_card_nfc_cancel">Abbrechen</string>
-    <string name="student_card_nfc_not_supported_instruction">NFC wird auf diesem Gerät nicht unterstützt. Du kannst ohne NFC fortfahren.</string>
     <string name="card_swipe_delete_hint">Zum Löschen einer Karte nach links wischen.</string>
-    <string name="card_swipe_default_label">Standard</string>
     <string name="student_card_label_last_name">Nachname:</string>
     <string name="student_card_label_first_name">Vorname:</string>
     <string name="student_card_label_matrikel">Matrikel-Nr.:</string>
     <string name="student_card_label_birth_date">Geb.:</string>
+    <string name="cards_reset_dialog_title">Karten aktualisiert / Cards Updated</string>
+    <string name="cards_reset_dialog_message">Alte Karten wurden entfernt, da die neue Version nur manuell erstellte Karten unterstützt. Dein Deutschlandticket bleibt erhalten.</string>
+    <string name="cards_reset_dialog_button">OK</string>
+    <string name="integration_disabled_dialog_title">Integration vorübergehend deaktiviert / Integration temporarily disabled</string>
+    <string name="integration_disabled_dialog_message">„Die automatische Kartenintegration (z. B. per NFC oder von der Mensa-Karte) ist derzeit deaktiviert.
+Das liegt daran, dass die Systeme der Hochschulen und Mensen in Deutschland leider noch nicht einheitlich sind.
+Sobald das technisch und rechtlich möglich ist, werden wir die Funktion wieder aktivieren. 😊“
+
+“The automatic card integration (via NFC or Mensa card) is currently disabled.
+This is because the university and canteen systems in Germany are not yet standardized.
+Once it’s technically and legally possible, we’ll bring the feature back. 😊”</string>
+    <string name="integration_disabled_dialog_button">Verstanden / Got it</string>
 </resources>

@@ -4,44 +4,29 @@ import android.app.KeyguardManager
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Base64
-import android.util.Log
 import androidx.core.content.edit
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.preferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.asimut.core.model.PassPayload
 import com.asimut.core.model.PassPayloadJson
-import com.asimut.core.sync.CardSyncContract
-import com.google.android.gms.wearable.Wearable
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
-import kotlin.text.Charsets
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import org.json.JSONObject
 
 private const val STORE_FILE = "card_repository_secure"
-private val Context.metadataDataStore by preferencesDataStore(name = "card_repository_metadata")
 
 class CardRepository private constructor(private val appContext: Context) {
 
     data class CardEntry(
         val payload: PassPayload,
         val imageBytes: ByteArray?,
-        val syncedAtEpochMillis: Long,
-        val isPrimary: Boolean
+        val syncedAtEpochMillis: Long
     ) {
         val lastUpdatedText: String?
             get() = syncedAtEpochMillis.takeIf { it > 0L }?.let {
@@ -51,49 +36,15 @@ class CardRepository private constructor(private val appContext: Context) {
             }
     }
 
-    private val scope = CoroutineScope(Dispatchers.IO)
     private val prefs: SharedPreferences = createEncryptedPrefs(appContext)
 
     private val cardsState = MutableStateFlow(loadCardsInternal())
-    private val primaryIdFlow: Flow<String?> = appContext.metadataDataStore.data
-        .map { prefs -> prefs[PRIMARY_CARD_ID] }
-        .distinctUntilChanged()
 
-    init {
-        ensurePrimaryCardExists()
-    }
-
-    val cards: Flow<List<CardEntry>> = combine(cardsState, primaryIdFlow) { cards, primaryId ->
-        cards.map { entry -> entry.copy(isPrimary = entry.payload.id == primaryId) }
-    }.distinctUntilChanged()
-
-    suspend fun getPrimaryCard(): CardEntry? {
-        val primaryId = primaryIdFlow.first()
-        return cardsState.value.firstOrNull { it.payload.id == primaryId }
-    }
+    val cards: Flow<List<CardEntry>> = cardsState.distinctUntilChanged()
 
     fun observeCards() = cards
 
-    suspend fun setPrimaryCard(id: String?) {
-        appContext.metadataDataStore.edit { prefs ->
-            if (id == null) {
-                prefs.remove(PRIMARY_CARD_ID)
-            } else {
-                prefs[PRIMARY_CARD_ID] = id
-            }
-        }
-        notifyPrimaryCardChanged(id)
-    }
-
-    fun ensurePrimaryCardExists() {
-        scope.launch {
-            val primaryId = primaryIdFlow.first()
-            val currentCards = cardsState.value
-            if (primaryId == null && currentCards.isNotEmpty()) {
-                setPrimaryCard(currentCards.first().payload.id)
-            }
-        }
-    }
+    fun getLatestCard(): CardEntry? = cardsState.value.firstOrNull()
 
     suspend fun saveCard(payload: PassPayload, imageBytes: ByteArray?, timestamp: Long) {
         withContext(Dispatchers.IO) {
@@ -102,7 +53,6 @@ class CardRepository private constructor(private val appContext: Context) {
                 putString(payload.id, stored.toJson())
             }
             refreshState()
-            ensurePrimaryCardExists()
         }
     }
 
@@ -110,11 +60,6 @@ class CardRepository private constructor(private val appContext: Context) {
         withContext(Dispatchers.IO) {
             prefs.edit { remove(cardId) }
             refreshState()
-            val primaryId = primaryIdFlow.first()
-            if (primaryId == cardId) {
-                val next = cardsState.value.firstOrNull()?.payload?.id
-                setPrimaryCard(next)
-            }
         }
     }
 
@@ -125,32 +70,6 @@ class CardRepository private constructor(private val appContext: Context) {
 
     fun refreshState() {
         cardsState.value = loadCardsInternal()
-    }
-
-    private suspend fun notifyPrimaryCardChanged(id: String?) {
-        val targetPayload = id?.let { cardId ->
-            cardsState.value.firstOrNull { it.payload.id == cardId }?.payload
-        }
-        if (id != null && targetPayload !is PassPayload.StudentCard) {
-            return
-        }
-
-        val payloadBytes = (id ?: "").toByteArray(Charsets.UTF_8)
-        val nodeClient = Wearable.getNodeClient(appContext)
-        val nodes = runCatching { nodeClient.connectedNodes.await() }.getOrElse { error ->
-            Log.w(TAG, "Unable to fetch connected nodes for primary sync", error)
-            return
-        }
-        if (nodes.isEmpty()) return
-
-        val messageClient = Wearable.getMessageClient(appContext)
-        nodes.forEach { node ->
-            runCatching {
-                messageClient.sendMessage(node.id, CardSyncContract.PATH_SET_PRIMARY, payloadBytes).await()
-            }.onFailure { error ->
-                Log.w(TAG, "Failed to propagate primary card change to ${node.displayName}", error)
-            }
-        }
     }
 
     private fun loadCardsInternal(): List<CardEntry> {
@@ -167,14 +86,12 @@ class CardRepository private constructor(private val appContext: Context) {
                 CardEntry(
                     payload = stored.payload,
                     imageBytes = stored.imageBytes,
-                    syncedAtEpochMillis = stored.syncedAt,
-                    isPrimary = false
+                    syncedAtEpochMillis = stored.syncedAt
                 )
             }
     }
 
     companion object {
-        private val PRIMARY_CARD_ID = preferencesKey<String>("primary_card_id")
         private const val TAG = "CardRepository"
 
         @Volatile
@@ -259,6 +176,4 @@ private fun PassPayload.displayName(): String = when (this) {
         .ifBlank { "Student Card" }
 
     is PassPayload.DeutschlandTicket -> holderName.ifBlank { "Deutschlandticket" }
-
-    is PassPayload.MensaCard -> holderName.ifBlank { "Mensa Card" }
 }

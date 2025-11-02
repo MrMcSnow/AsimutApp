@@ -28,11 +28,9 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import com.google.zxing.WriterException
 import com.google.zxing.common.BitMatrix
-import java.text.NumberFormat
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 @Composable
 fun Title(text: String, subtitle: String?) {
@@ -95,20 +93,6 @@ fun ScalingLazyListScope.studentCardDetails(payload: PassPayload.StudentCard) {
             CardField(title = stringResource(id = R.string.student_card_birthdate), value = payload.birthDate)
         }
     }
-    payload.nfcTagId?.takeIf { it.isNotBlank() }?.let { tagId ->
-        item("student_nfc_status") {
-            CardField(
-                title = stringResource(id = R.string.student_card_nfc_status),
-                value = stringResource(id = R.string.student_card_nfc_ready)
-            )
-        }
-        item("student_nfc_tag") {
-            CardField(
-                title = stringResource(id = R.string.student_card_nfc_tag_id),
-                value = tagId
-            )
-        }
-    }
 }
 
 fun ScalingLazyListScope.deutschlandTicketDetails(payload: PassPayload.DeutschlandTicket) {
@@ -125,39 +109,6 @@ fun ScalingLazyListScope.deutschlandTicketDetails(payload: PassPayload.Deutschla
     payload.validTo.formatDate()?.let { to ->
         item("dt_valid_to") {
             CardField(title = stringResource(id = R.string.deutschlandticket_valid_to), value = to)
-        }
-    }
-}
-
-fun ScalingLazyListScope.mensaCardDetails(payload: PassPayload.MensaCard) {
-    payload.holderName.takeIf { it.isNotBlank() }?.let { holder ->
-        item("mensa_holder") {
-            CardField(title = stringResource(id = R.string.mensa_holder), value = holder)
-        }
-    }
-    item("mensa_balance") {
-        CardField(
-            title = stringResource(id = R.string.mensa_balance),
-            value = formatCurrency(payload.balance)
-        )
-    }
-    payload.lastUpdated.formatDateTime()?.let { updated ->
-        item("mensa_updated") {
-            CardField(title = stringResource(id = R.string.mensa_last_updated), value = updated)
-        }
-    }
-    payload.nfcTagId?.takeIf { it.isNotBlank() }?.let { tagId ->
-        item("mensa_nfc_status") {
-            CardField(
-                title = stringResource(id = R.string.mensa_card_nfc_status),
-                value = stringResource(id = R.string.mensa_card_nfc_ready)
-            )
-        }
-        item("mensa_nfc_tag") {
-            CardField(
-                title = stringResource(id = R.string.mensa_card_nfc_tag_id),
-                value = tagId
-            )
         }
     }
 }
@@ -223,13 +174,3 @@ private fun Long.formatDate(): String? {
     return formatter.format(Instant.ofEpochMilli(this))
 }
 
-private fun Long.formatDateTime(): String? {
-    if (this <= 0L) return null
-    val formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm").withZone(ZoneId.systemDefault())
-    return formatter.format(Instant.ofEpochMilli(this))
-}
-
-private fun formatCurrency(value: Double): String {
-    val formatter = NumberFormat.getCurrencyInstance(Locale.GERMANY)
-    return formatter.format(value)
-}

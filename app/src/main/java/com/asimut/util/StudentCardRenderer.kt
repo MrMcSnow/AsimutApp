@@ -12,7 +12,6 @@ import android.graphics.PorterDuffColorFilter
 import android.util.TypedValue
 import androidx.core.content.ContextCompat
 import com.asimut.R
-import java.util.Locale
 import kotlin.math.max
 import kotlin.math.min
 
@@ -42,21 +41,6 @@ class StudentCardRenderer(context: Context) {
         textAlign = Paint.Align.LEFT
     }
 
-    private val badgeTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = ContextCompat.getColor(context, R.color.student_card_badge_text)
-        textSize = sp(12f)
-        textAlign = Paint.Align.CENTER
-        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-    }
-
-    private val badgeDefaultBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = ContextCompat.getColor(context, R.color.student_card_badge_background)
-    }
-
-    private val badgeNfcBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = ContextCompat.getColor(context, R.color.student_card_nfc_badge_background)
-    }
-
     private val logoBitmap = BitmapFactory.decodeResource(resources, R.drawable.ic_asimut)
         ?: throw IllegalStateException("Unable to decode ic_asimut drawable")
 
@@ -68,8 +52,6 @@ class StudentCardRenderer(context: Context) {
     private val columnSpacing = dp(16f)
     private val rowSpacing = dp(12f)
     private val cornerRadius = dp(32f)
-    private val badgeHorizontalTextPadding = dp(12f)
-    private val badgeVerticalTextPadding = dp(6f)
     private val logoSize = dp(72f)
     private val headerSpacing = dp(24f)
 
@@ -81,9 +63,7 @@ class StudentCardRenderer(context: Context) {
         firstName: String,
         lastName: String,
         matrikelnummer: String,
-        birthDate: String,
-        showDefaultBadge: Boolean,
-        showNfcBadge: Boolean
+        birthDate: String
     ): Bitmap {
         val bitmap = Bitmap.createBitmap(templateWidth, templateHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -98,34 +78,6 @@ class StudentCardRenderer(context: Context) {
         )
         canvas.drawBitmap(logoBitmap, null, logoRect, logoPaint)
 
-        val badgeTop = outerPadding
-        val badgeHeight = badgeHeight()
-        val badgesBottom = if (showDefaultBadge || showNfcBadge) badgeTop + badgeHeight else badgeTop
-
-        if (showDefaultBadge) {
-            drawBadge(
-                canvas = canvas,
-                text = resources.getString(R.string.student_card_default_badge).uppercase(Locale.getDefault()),
-                isStartAligned = true,
-                horizontalPadding = outerPadding,
-                verticalPadding = badgeTop,
-                canvasWidth = templateRect.width(),
-                backgroundPaint = badgeDefaultBackgroundPaint
-            )
-        }
-
-        if (showNfcBadge) {
-            drawBadge(
-                canvas = canvas,
-                text = resources.getString(R.string.student_card_nfc_active_badge).uppercase(Locale.getDefault()),
-                isStartAligned = false,
-                horizontalPadding = outerPadding,
-                verticalPadding = badgeTop,
-                canvasWidth = templateRect.width(),
-                backgroundPaint = badgeNfcBackgroundPaint
-            )
-        }
-
         val labels = listOf(
             resources.getString(R.string.student_card_label_last_name) to lastName,
             resources.getString(R.string.student_card_label_first_name) to firstName,
@@ -137,7 +89,7 @@ class StudentCardRenderer(context: Context) {
         val labelX = outerPadding
         val valueX = labelX + maxLabelWidth + columnSpacing
 
-        val tableTop = badgesBottom + headerSpacing
+        val tableTop = outerPadding + headerSpacing
         var currentBaseline = tableTop + rowAscent
 
         labels.forEach { (label, value) ->
@@ -147,37 +99,6 @@ class StudentCardRenderer(context: Context) {
         }
 
         return bitmap
-    }
-
-    private fun drawBadge(
-        canvas: Canvas,
-        text: String,
-        isStartAligned: Boolean,
-        horizontalPadding: Float,
-        verticalPadding: Float,
-        canvasWidth: Float,
-        backgroundPaint: Paint
-    ) {
-        val textWidth = badgeTextPaint.measureText(text)
-        val badgeWidth = textWidth + badgeHorizontalTextPadding * 2
-        val badgeHeight = badgeHeight()
-        val top = verticalPadding
-        val left = if (isStartAligned) {
-            horizontalPadding
-        } else {
-            canvasWidth - horizontalPadding - badgeWidth
-        }
-        val rect = RectF(left, top, left + badgeWidth, top + badgeHeight)
-        val radius = badgeHeight / 2f
-        canvas.drawRoundRect(rect, radius, radius, backgroundPaint)
-        val baseline = rect.top + badgeVerticalTextPadding - badgeTextPaint.ascent()
-        val textX = rect.left + badgeWidth / 2f
-        canvas.drawText(text, textX, baseline, badgeTextPaint)
-    }
-
-    private fun badgeHeight(): Float {
-        val metrics = badgeTextPaint.fontMetrics
-        return metrics.bottom - metrics.top + badgeVerticalTextPadding * 2
     }
 
     private fun dp(value: Float): Float {
