@@ -35,6 +35,7 @@ class MensaCardStorage(context: Context) {
     fun saveCard(cardId: String, rawJson: String) {
         val json = runCatching { JSONObject(rawJson) }.getOrElse { error ->
             Log.e(TAG, "Failed to parse Mensa card JSON", error)
+            handleInvalidPayload(cardId, "invalid JSON payload")
             return
         }
         saveCard(cardId, json)
