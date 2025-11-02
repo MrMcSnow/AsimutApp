@@ -53,10 +53,6 @@ class StudentCardRenderer(context: Context) {
         color = ContextCompat.getColor(context, R.color.student_card_badge_background)
     }
 
-    private val badgeNfcBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = ContextCompat.getColor(context, R.color.student_card_nfc_badge_background)
-    }
-
     private val logoBitmap = BitmapFactory.decodeResource(resources, R.drawable.ic_asimut)
         ?: throw IllegalStateException("Unable to decode ic_asimut drawable")
 
@@ -82,8 +78,7 @@ class StudentCardRenderer(context: Context) {
         lastName: String,
         matrikelnummer: String,
         birthDate: String,
-        showDefaultBadge: Boolean,
-        showNfcBadge: Boolean
+        showDefaultBadge: Boolean
     ): Bitmap {
         val bitmap = Bitmap.createBitmap(templateWidth, templateHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -100,7 +95,7 @@ class StudentCardRenderer(context: Context) {
 
         val badgeTop = outerPadding
         val badgeHeight = badgeHeight()
-        val badgesBottom = if (showDefaultBadge || showNfcBadge) badgeTop + badgeHeight else badgeTop
+        val badgesBottom = if (showDefaultBadge) badgeTop + badgeHeight else badgeTop
 
         if (showDefaultBadge) {
             drawBadge(
@@ -111,18 +106,6 @@ class StudentCardRenderer(context: Context) {
                 verticalPadding = badgeTop,
                 canvasWidth = templateRect.width(),
                 backgroundPaint = badgeDefaultBackgroundPaint
-            )
-        }
-
-        if (showNfcBadge) {
-            drawBadge(
-                canvas = canvas,
-                text = resources.getString(R.string.student_card_nfc_active_badge).uppercase(Locale.getDefault()),
-                isStartAligned = false,
-                horizontalPadding = outerPadding,
-                verticalPadding = badgeTop,
-                canvasWidth = templateRect.width(),
-                backgroundPaint = badgeNfcBackgroundPaint
             )
         }
 
