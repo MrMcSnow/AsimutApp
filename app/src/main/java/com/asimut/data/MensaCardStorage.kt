@@ -21,11 +21,7 @@ class MensaCardStorage(context: Context) {
     fun saveCard(cardId: String, json: JSONObject) {
         val payload = WearSync.Builder.mensaCard(cardId, json)
         if (payload == null) {
-            Log.w(TAG, "Skipping Mensa card $cardId: payload serialization failed")
-            val storedId = clearStoredState() ?: cardId.takeIf { it.isNotBlank() }
-            storedId?.let { id ->
-                wearScope.launch { WearSync.from(appContext).deleteCard(WearSync.TYPE_MENSA, id) }
-            }
+            handleInvalidPayload(cardId, "payload serialization failed")
             return
         }
 
@@ -72,12 +68,24 @@ class MensaCardStorage(context: Context) {
     fun latestWearPayload(): WearSync.CardPayload? {
         val cardId = getCardId() ?: return null
         val json = getCardJson() ?: return null
-        return WearSync.Builder.mensaCard(cardId, json)
+        val payload = WearSync.Builder.mensaCard(cardId, json)
+        if (payload == null) {
+            handleInvalidPayload(cardId, "payload serialization failed during refresh")
+        }
+        return payload
     }
 
     private fun syncCard(payload: WearSync.CardPayload) {
         wearScope.launch {
             WearSync.from(appContext).pushCard(payload)
+        }
+    }
+
+    private fun handleInvalidPayload(cardId: String, reason: String) {
+        Log.w(TAG, "Skipping Mensa card $cardId: $reason")
+        val storedId = clearStoredState() ?: cardId.takeIf { it.isNotBlank() }
+        storedId?.let { id ->
+            wearScope.launch { WearSync.from(appContext).deleteCard(WearSync.TYPE_MENSA, id) }
         }
     }
 
