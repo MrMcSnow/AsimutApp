@@ -111,7 +111,10 @@ class StudentCardStorage(context: Context) {
             }
         }
         saveCards(cards)
-        cards.firstOrNull { it.id == cardId }?.let { syncCard(it) }
+        cards.firstOrNull { it.id == cardId }?.let { updated ->
+            syncCard(updated)
+            MensaCardStorage(appContext).updateNfcDataFromStudentCard(tagId, updated.nfcPayload)
+        }
     }
 
     fun getDefaultCardId(): String? = preferences.getString(KEY_DEFAULT_CARD_ID, null)
@@ -123,7 +126,10 @@ class StudentCardStorage(context: Context) {
             getCardById(id)?.let { syncCard(it) }
         }
         cardId?.let { id ->
-            getCardById(id)?.let { syncCard(it) }
+            getCardById(id)?.let { card ->
+                syncCard(card)
+                MensaCardStorage(appContext).updateNfcDataFromStudentCard(card.nfcTagId, card.nfcPayload)
+            }
         }
     }
 
