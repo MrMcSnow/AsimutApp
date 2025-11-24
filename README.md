@@ -13,12 +13,13 @@ Sie bündelt alle wichtigen Hochschuldienste an einem Ort – von Asimut über L
 ## DE **Hauptfunktionen**
 
 - 🗂️ **Schneller Zugriff auf Hochschul-Dienste**
-  - **Asimut** – Raum- und Stundenplanverwaltung  
-  - **LMS (Moodle)** – Lernplattform und Kursinhalte  
-  - **QIS** – Noten, Prüfungen, Einschreibungen  
-  - **StudMail** – offizielle Studierenden-E-Mail  
-  - **PaperCut** – Druckverwaltung und Kopierguthaben  
-  - **HMTMH.de** – offizielle Website der Hochschule  
+  - **Asimut** – Raum- und Stundenplanverwaltung
+  - **LMS (Moodle)** – Lernplattform und Kursinhalte
+  - **QIS** – Noten, Prüfungen, Einschreibungen
+  - **StudMail** – offizielle Studierenden-E-Mail
+  - **PaperCut** – Druckverwaltung und Kopierguthaben
+  - **Service Desk** – IT-Support und Ticket-Erstellung
+  - **HMTMH.de** – offizielle Website der Hochschule
   > Alle Dienste werden direkt im integrierten WebView geöffnet.
 
 - 🎟️ **Kartenverwaltung**
@@ -55,6 +56,7 @@ Sie bündelt alle wichtigen Hochschuldienste an einem Ort – von Asimut über L
 | QIS         | https://qis.hmt.hispro.de/             |
 | StudMail    | https://stud.hmtm-hannover.de/         |
 | PaperCut    | https://papercut.hmtm-hannover.de/     |
+| Service Desk | https://service.hmtm-hannover.de/otobo/customer.pl?Action=CustomerTicketMessage;ServiceID=57;TypeID=7 |
 | HMTMH.de    | https://www.hmtm-hannover.de/          |
 
 > Alle sind im Navigationsmenü erreichbar.
@@ -109,12 +111,13 @@ Jazz & Media Student @ HMTMH
 ## 📱 Main Features
 
 - 🗂️ **University Portals Integration**
-  - **Asimut** – room booking and schedule management  
-  - **LMS (Moodle)** – learning platform and course access  
-  - **QIS** – grades, exams, registrations  
-  - **StudMail** – official student mail access  
-  - **PaperCut** – printing balance and document upload  
-  - **HMTMH.de** – official university website  
+  - **Asimut** – room booking and schedule management
+  - **LMS (Moodle)** – learning platform and course access
+  - **QIS** – grades, exams, registrations
+  - **StudMail** – official student mail access
+  - **PaperCut** – printing balance and document upload
+  - **Service Desk** – IT support and ticket creation
+  - **HMTMH.de** – official university website
   > All services open directly within an in-app WebView.
 
 - 🎟️ **Cards Section**

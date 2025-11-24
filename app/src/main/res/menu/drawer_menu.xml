@@ -24,6 +24,10 @@
         android:icon="@drawable/ic_papercut"
         android:title="PaperCut" />
     <item
+        android:id="@+id/nav_service_desk"
+        android:icon="@drawable/ic_help_outline"
+        android:title="Service Desk" />
+    <item
         android:id="@+id/nav_clear_credentials"
         android:icon="@drawable/ic_delete"
         android:title="Anmeldedaten löschen" />
