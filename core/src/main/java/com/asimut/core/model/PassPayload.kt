@@ -121,9 +121,9 @@ object PassPayloadJson {
                 lastName = json.optString(KEY_LAST_NAME, ""),
                 matrikelnummer = json.optString(KEY_MATRIKELNUMMER, ""),
                 birthDate = json.optString(KEY_BIRTH_DATE, ""),
-                imagePng = json.optString(KEY_IMAGE, null).fromBase64(),
-                nfcTagId = json.optString(KEY_NFC_TAG_ID, null)?.takeIf { it.isNotBlank() },
-                nfcPayload = json.optString(KEY_NFC_PAYLOAD, null)?.takeIf { it.isNotBlank() }
+                imagePng = json.optNullableString(KEY_IMAGE).fromBase64(),
+                nfcTagId = json.optNullableString(KEY_NFC_TAG_ID)?.takeIf { it.isNotBlank() },
+                nfcPayload = json.optNullableString(KEY_NFC_PAYLOAD)?.takeIf { it.isNotBlank() }
             )
 
             TYPE_DEUTSCHLAND -> PassPayload.DeutschlandTicket(
@@ -131,7 +131,7 @@ object PassPayloadJson {
                 holderName = json.optString(KEY_HOLDER, ""),
                 validFrom = json.optLong(KEY_VALID_FROM, 0L),
                 validTo = json.optLong(KEY_VALID_TO, 0L),
-                rawBytes = json.optString(KEY_RAW_BYTES, null).fromBase64(),
+                rawBytes = json.optNullableString(KEY_RAW_BYTES).fromBase64(),
                 displayQr = json.optBoolean(KEY_DISPLAY_QR, true)
             )
 
@@ -139,12 +139,12 @@ object PassPayloadJson {
                 id = id,
                 holderName = json.optString(KEY_HOLDER, ""),
                 balance = json.readOptionalBalance(),
-                balanceDisplay = json.optString(KEY_BALANCE_DISPLAY, null)?.takeIf { it.isNotBlank() }
+                balanceDisplay = json.optNullableString(KEY_BALANCE_DISPLAY)?.takeIf { it.isNotBlank() }
                     ?: json.readBalanceAsString(),
                 lastUpdated = json.optLong(KEY_LAST_UPDATED, 0L),
-                qrToken = json.optString(KEY_QR_TOKEN, null),
-                nfcTagId = json.optString(KEY_NFC_TAG_ID, null)?.takeIf { it.isNotBlank() },
-                nfcPayload = json.optString(KEY_NFC_PAYLOAD, null)?.takeIf { it.isNotBlank() }
+                qrToken = json.optNullableString(KEY_QR_TOKEN),
+                nfcTagId = json.optNullableString(KEY_NFC_TAG_ID)?.takeIf { it.isNotBlank() },
+                nfcPayload = json.optNullableString(KEY_NFC_PAYLOAD)?.takeIf { it.isNotBlank() }
             )
 
             else -> throw IllegalArgumentException("Unknown pass payload type: ${json.optString(KEY_TYPE)}")
@@ -156,6 +156,9 @@ object PassPayloadJson {
 
     private fun ByteArray.toBase64(): String =
         Base64.encodeToString(this, Base64.NO_WRAP)
+
+    private fun JSONObject.optNullableString(key: String): String? =
+        if (has(key) && !isNull(key)) getString(key) else null
 
     private fun JSONObject.readOptionalBalance(): Double? {
         if (!has(KEY_BALANCE) || isNull(KEY_BALANCE)) {

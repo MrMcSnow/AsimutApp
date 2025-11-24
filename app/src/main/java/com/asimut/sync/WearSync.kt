@@ -131,21 +131,22 @@ class WearSync(private val context: Context) {
         }
 
         fun mensaCard(cardId: String, json: JSONObject): CardPayload? {
-            val holderName = json.optString("holderName")
-                .ifBlank { json.optString("name") }
+            val holderName = json.optNullableString("holderName")?.takeIf { it.isNotBlank() }
+                ?: json.optNullableString("name")
+                ?: ""
             val rawBalance = json.opt("balance")
             val balance = when (rawBalance) {
                 is Number -> rawBalance.toDouble()
                 is String -> rawBalance.toDoubleOrNull()
                 else -> null
             }
-            val balanceDisplay = json.optString("balanceDisplay", null).takeIf { !it.isNullOrBlank() }
-                ?: json.optString("balanceText", null).takeIf { !it.isNullOrBlank() }
+            val balanceDisplay = json.optNullableString("balanceDisplay").takeIf { !it.isNullOrBlank() }
+                ?: json.optNullableString("balanceText").takeIf { !it.isNullOrBlank() }
                 ?: (rawBalance as? String)?.takeIf { it.isNotBlank() }
             val lastUpdated = json.optLong("lastUpdated", System.currentTimeMillis())
-            val qrToken = json.optString("qrToken", null)
-            val nfcTagId = json.optString("nfcTagId", null).takeIf { !it.isNullOrBlank() }
-            val nfcPayload = json.optString("nfcPayload", null).takeIf { !it.isNullOrBlank() }
+            val qrToken = json.optNullableString("qrToken")
+            val nfcTagId = json.optNullableString("nfcTagId").takeIf { !it.isNullOrBlank() }
+            val nfcPayload = json.optNullableString("nfcPayload").takeIf { !it.isNullOrBlank() }
 
             val payload = PassPayload.MensaCard(
                 id = cardId,
@@ -166,6 +167,9 @@ class WearSync(private val context: Context) {
             )
         }
     }
+
+    private fun JSONObject.optNullableString(key: String): String? =
+        if (has(key) && !isNull(key)) getString(key) else null
 
     private suspend fun retryWithBackoff(action: String, type: String, id: String, block: suspend () -> Unit) {
         var delayMillis = INITIAL_BACKOFF_MS
