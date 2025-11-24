@@ -29,6 +29,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var navView: NavigationView
+    private lateinit var aboutNavView: NavigationView
     private lateinit var cardButton: FloatingActionButton
     private lateinit var uploadResultProxy: ValueCallback<Array<Uri>>
 
@@ -74,6 +75,7 @@ class MainActivity : AppCompatActivity() {
 
         drawerLayout = findViewById(R.id.drawer_layout)
         navView = findViewById(R.id.nav_view)
+        aboutNavView = findViewById(R.id.about_nav_view)
 
         val menuButton: ImageButton = findViewById(R.id.menu_button)
         menuButton.setOnClickListener {
@@ -88,6 +90,17 @@ class MainActivity : AppCompatActivity() {
         }
 
         setupSocialLinks()
+
+        navView.findViewById<ImageButton>(R.id.about_button)?.setOnClickListener {
+            if (!drawerLayout.isDrawerOpen(GravityCompat.END)) {
+                drawerLayout.openDrawer(GravityCompat.END)
+                drawerLayout.animate()
+                    .translationX(0f)
+                    .setDuration(300)
+                    .setInterpolator(AccelerateDecelerateInterpolator())
+                    .start()
+            }
+        }
 
         navView.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
@@ -145,7 +158,7 @@ class MainActivity : AppCompatActivity() {
         )
 
         socialLinks.forEach { (viewId, url) ->
-            navView.findViewById<View>(viewId)?.setOnClickListener {
+            aboutNavView.findViewById<View>(viewId)?.setOnClickListener {
                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
             }
         }
