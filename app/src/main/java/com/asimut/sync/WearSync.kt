@@ -217,3 +217,6 @@ private fun Bitmap.toPngByteArray(): ByteArray? {
         }
     }.getOrNull()
 }
+
+private fun JSONObject.optNullableString(key: String): String? =
+    if (has(key) && !isNull(key)) getString(key) else null
