@@ -67,7 +67,7 @@ Die Installation erfolgt manuell über die APK-Datei, da noch kein Google-Play-R
 | QIS         | https://qis.hmt.hispro.de/             |
 | StudMail    | https://stud.hmtm-hannover.de/         |
 | PaperCut    | https://papercut.hmtm-hannover.de/     |
-| Service Desk | https://service.hmtm-hannover.de/otobo/customer.pl?Action=CustomerTicketMessage;ServiceID=57;TypeID=7 |
+| Service Desk | https://service.hmtm-hannover.de/     |
 | HMTMH.de    | https://www.hmtm-hannover.de/          |
 
 > Alle sind im Navigationsmenü erreichbar.
