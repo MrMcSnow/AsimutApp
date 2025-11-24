@@ -61,9 +61,8 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:layout_marginEnd="12dp"
-                    android:src="@drawable/ic_placeholder"
-                    android:contentDescription="Замените эту иконку на Telegram"
-                    android:tint="@android:color/white" />
+                    android:src="@drawable/ic_telegram"
+                    android:contentDescription="Telegram" />
 
                 <TextView
                     android:layout_width="0dp"
@@ -90,9 +89,8 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:layout_marginEnd="12dp"
-                    android:src="@drawable/ic_placeholder"
-                    android:contentDescription="Замените эту иконку на Instagram"
-                    android:tint="@android:color/white" />
+                    android:src="@drawable/ic_instagram"
+                    android:contentDescription="Instagram" />
 
                 <TextView
                     android:layout_width="0dp"
@@ -119,9 +117,8 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:layout_marginEnd="12dp"
-                    android:src="@drawable/ic_placeholder"
-                    android:contentDescription="Замените эту иконку на X (Twitter)"
-                    android:tint="@android:color/white" />
+                    android:src="@drawable/ic_x"
+                    android:contentDescription="X (Twitter)" />
 
                 <TextView
                     android:layout_width="0dp"
@@ -148,9 +145,8 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:layout_marginEnd="12dp"
-                    android:src="@drawable/ic_placeholder"
-                    android:contentDescription="Замените эту иконку на Facebook"
-                    android:tint="@android:color/white" />
+                    android:src="@drawable/ic_facebook"
+                    android:contentDescription="Facebook" />
 
                 <TextView
                     android:layout_width="0dp"
@@ -177,9 +173,8 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:layout_marginEnd="12dp"
-                    android:src="@drawable/ic_placeholder"
-                    android:contentDescription="Замените эту иконку на VK"
-                    android:tint="@android:color/white" />
+                    android:src="@drawable/ic_vk"
+                    android:contentDescription="VK" />
 
                 <TextView
                     android:layout_width="0dp"
@@ -206,9 +201,8 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:layout_marginEnd="12dp"
-                    android:src="@drawable/ic_placeholder"
-                    android:contentDescription="Замените эту иконку на WhatsApp"
-                    android:tint="@android:color/white" />
+                    android:src="@drawable/ic_whatsapp"
+                    android:contentDescription="WhatsApp" />
 
                 <TextView
                     android:layout_width="0dp"
@@ -235,9 +229,8 @@
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:layout_marginEnd="12dp"
-                    android:src="@drawable/ic_placeholder"
-                    android:contentDescription="Замените эту иконку на Viber"
-                    android:tint="@android:color/white" />
+                    android:src="@drawable/ic_viber"
+                    android:contentDescription="Viber" />
 
                 <TextView
                     android:layout_width="0dp"
