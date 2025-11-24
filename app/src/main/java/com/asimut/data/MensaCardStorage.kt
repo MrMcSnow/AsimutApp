@@ -93,8 +93,8 @@ class MensaCardStorage(context: Context) {
         val normalizedTag = tagId?.takeIf { it.isNotBlank() } ?: return
         val cardId = getCardId() ?: return
         val currentJson = getCardJson() ?: return
-        val existingTag = currentJson.optString(JSON_NFC_TAG_ID, null)?.takeIf { it.isNotBlank() }
-        val existingPayload = currentJson.optString(JSON_NFC_PAYLOAD, null)?.takeIf { it.isNotBlank() }
+        val existingTag = currentJson.optNullableString(JSON_NFC_TAG_ID)?.takeIf { it.isNotBlank() }
+        val existingPayload = currentJson.optNullableString(JSON_NFC_PAYLOAD)?.takeIf { it.isNotBlank() }
         val normalizedPayload = payload?.takeIf { it.isNotBlank() }
 
         if (existingTag == normalizedTag && existingPayload == normalizedPayload) {
@@ -129,8 +129,8 @@ class MensaCardStorage(context: Context) {
     }
 
     private fun ensureNfcData(json: JSONObject): Pair<JSONObject, Boolean> {
-        val existingTag = json.optString(JSON_NFC_TAG_ID, null)?.takeIf { it.isNotBlank() }
-        val existingPayload = json.optString(JSON_NFC_PAYLOAD, null)?.takeIf { it.isNotBlank() }
+        val existingTag = json.optNullableString(JSON_NFC_TAG_ID)?.takeIf { it.isNotBlank() }
+        val existingPayload = json.optNullableString(JSON_NFC_PAYLOAD)?.takeIf { it.isNotBlank() }
         if (!existingTag.isNullOrBlank() && !existingPayload.isNullOrBlank()) {
             return json to false
         }
@@ -196,3 +196,6 @@ class MensaCardStorage(context: Context) {
         return cardId
     }
 }
+
+private fun JSONObject.optNullableString(key: String): String? =
+    if (has(key) && !isNull(key)) getString(key) else null
