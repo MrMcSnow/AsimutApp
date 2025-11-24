@@ -19,7 +19,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:textColor="@android:color/white"
-            android:text="Von Serhii Lobazanov\ninst.: @mr.mcsnow"
+            android:text="Von Serhii Lobazanov © Mr.McSnow"
             android:gravity="start" />
 
         <ImageButton
@@ -32,6 +32,6 @@
             android:padding="8dp"
             android:src="@drawable/ic_placeholder_info"
             android:tint="@android:color/white"
-            android:tooltipText="Über das Projekt (замени иконку здесь)" />
+            android:tooltipText="Über das Projekt" />
     </LinearLayout>
 </LinearLayout>

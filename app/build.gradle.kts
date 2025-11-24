@@ -5,13 +5,13 @@ plugins {
 
 android {
     namespace = "com.asimut"
-    compileSdkVersion(33)
+    compileSdk = 34
     defaultConfig {
         applicationId = "com.asimut"
-        minSdkVersion(21)
-        targetSdkVersion(33)
-        versionCode = 1
-        versionName = "1.0"
+        minSdk = 21
+        targetSdk = 34
+        versionCode = 4
+        versionName = "1.3.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

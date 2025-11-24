@@ -25,7 +25,7 @@
         android:title="PaperCut" />
     <item
         android:id="@+id/nav_service_desk"
-        android:icon="@drawable/ic_help_outline"
+        android:icon="@drawable/ic_exam"
         android:title="Service Desk" />
     <item
         android:id="@+id/nav_clear_credentials"
