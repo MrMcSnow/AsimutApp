@@ -94,6 +94,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.nav_studmail -> webView.loadUrl("https://stud.hmtm-hannover.de/")
                 R.id.nav_hmtmh -> webView.loadUrl("https://www.hmtm-hannover.de/")
                 R.id.nav_papercut -> webView.loadUrl("https://papercut.hmtm-hannover.de")
+                R.id.nav_service_desk -> webView.loadUrl("https://service.hmtm-hannover.de/otobo/customer.pl?Action=CustomerTicketMessage;ServiceID=57;TypeID=7")
                 R.id.nav_clear_credentials -> showClearCredentialsDialog()
             }
             drawerLayout.closeDrawers()
