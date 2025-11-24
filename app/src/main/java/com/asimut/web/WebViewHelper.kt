@@ -97,6 +97,7 @@ object WebViewHelper {
                 super.onPageFinished(view, url)
                 // Автоподстановка: применять ко всем поддержанным сайтам
                 triedSaveOnThisPage = false
+                forceEnableZoom(view)
                 autofillGenericCredentials(view)
                 // Попытка один раз прочитать введённые пользователем данные и сохранить
                 maybeCaptureAndSaveCredentials(view)
@@ -138,6 +139,26 @@ object WebViewHelper {
               );
               if (uEl) { uEl.value = '$uEsc'; uEl.dispatchEvent(new Event('input',{bubbles:true})); }
               if (pEl) { pEl.value = '$pEsc'; pEl.dispatchEvent(new Event('input',{bubbles:true})); }
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(js, null)
+    }
+
+    private fun forceEnableZoom(webView: WebView) {
+        val js = """
+            (function(){
+              var head = document.head || document.getElementsByTagName('head')[0];
+              if(!head){ return; }
+              var content = 'width=device-width, initial-scale=1, maximum-scale=5, minimum-scale=0.25, user-scalable=yes';
+              var viewport = document.querySelector('meta[name="viewport"]');
+              if(viewport){
+                viewport.setAttribute('content', content);
+              } else {
+                var meta = document.createElement('meta');
+                meta.name = 'viewport';
+                meta.content = content;
+                head.appendChild(meta);
+              }
             })();
         """.trimIndent()
         webView.evaluateJavascript(js, null)
