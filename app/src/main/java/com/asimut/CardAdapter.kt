@@ -10,13 +10,14 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
-import com.asimut.util.BarcodeUtil
+import com.asimut.core.util.BarcodeUtil
 import com.asimut.util.StudentCardRenderer
 import com.google.android.material.card.MaterialCardView
 
 class CardAdapter(
     private val items: List<CardItem>,
-    private val onItemClick: (CardItem) -> Unit
+    private val onItemClick: (CardItem) -> Unit,
+    private val onInfoClick: (CardItem.StudentCard) -> Unit
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     sealed class CardItem {
@@ -26,8 +27,7 @@ class CardAdapter(
             val lastName: String,
             val matrikelnummer: String,
             val birthDate: String,
-            val isDefaultPayment: Boolean,
-            val isNfcConfigured: Boolean
+            val isDefaultPayment: Boolean
         ) : CardItem()
 
         data class DeutschlandTicketCard(
@@ -86,6 +86,7 @@ class CardAdapter(
     private inner class StudentCardViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val cardView: MaterialCardView = itemView as MaterialCardView
         private val cardImageView: ImageView = itemView.findViewById(R.id.card_image)
+        private val infoButton: ImageView = itemView.findViewById(R.id.card_info_button)
         private val renderer = StudentCardRenderer(itemView.context)
 
         fun bind(card: CardItem.StudentCard) {
@@ -94,8 +95,7 @@ class CardAdapter(
                 lastName = card.lastName,
                 matrikelnummer = card.matrikelnummer,
                 birthDate = card.birthDate,
-                showDefaultBadge = card.isDefaultPayment,
-                showNfcBadge = card.isNfcConfigured
+                showDefaultBadge = card.isDefaultPayment
             )
             cardImageView.setImageBitmap(renderedBitmap)
 
@@ -107,6 +107,7 @@ class CardAdapter(
             cardView.strokeColor = ContextCompat.getColor(context, R.color.student_card_default_stroke)
 
             itemView.setOnClickListener { onItemClick(card) }
+            infoButton.setOnClickListener { onInfoClick(card) }
         }
     }
 

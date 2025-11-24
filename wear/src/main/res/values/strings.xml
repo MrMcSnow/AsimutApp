@@ -1,0 +1,31 @@
+<resources>
+    <string name="app_name">Asimut Wear</string>
+    <string name="tile_label">Asimut Cards</string>
+    <string name="refresh_button">Refresh data</string>
+    <string name="primary_chip_label">Primary</string>
+    <string name="secondary_chip_label">Set primary</string>
+    <string name="empty_state_title">No cards yet</string>
+    <string name="empty_state_body">Open the phone app and refresh to sync your cards.</string>
+    <string name="mensa_card_title">MensaCard</string>
+    <string name="student_card_title">Student card</string>
+    <string name="student_card_number">Matriculation number</string>
+    <string name="student_card_birthdate">Date of birth</string>
+    <string name="student_card_nfc_status">Mensa NFC</string>
+    <string name="student_card_nfc_ready">Enabled for payments</string>
+    <string name="student_card_nfc_tag_id">Tag ID</string>
+    <string name="deutschland_ticket_title">Deutschlandticket</string>
+    <string name="deutschlandticket_holder">Holder</string>
+    <string name="deutschlandticket_valid_from">Valid from</string>
+    <string name="deutschlandticket_valid_to">Valid until</string>
+    <string name="qr_content_description">QR code</string>
+    <string name="carousel_position">%1$d of %2$d</string>
+    <string name="tile_subtitle">Tap to open cards</string>
+    <string name="last_updated">Updated %1$s</string>
+    <string name="pin_required">Unlock watch to view cards.</string>
+    <string name="loading">Loading…</string>
+    <string name="mensa_holder">Holder</string>
+    <string name="mensa_card_nfc_status">Mensa NFC</string>
+    <string name="mensa_card_nfc_ready">Enabled for payments</string>
+    <string name="mensa_card_nfc_tag_id">Tag ID</string>
+    <string name="mensa_card_nfc_missing">Configure NFC in the phone app</string>
+</resources>

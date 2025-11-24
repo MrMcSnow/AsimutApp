@@ -1,4 +1,4 @@
-package com.asimut.util
+package com.asimut.core.util
 
 import android.graphics.Bitmap
 import android.graphics.Color

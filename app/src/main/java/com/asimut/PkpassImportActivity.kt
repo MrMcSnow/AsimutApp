@@ -7,10 +7,11 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.asimut.core.util.BarcodeUtil
 import com.asimut.data.DeutschlandTicketParser
 import com.asimut.data.DticketRepository
 import com.asimut.data.TicketsRepository
-import com.asimut.util.BarcodeUtil
+import com.asimut.data.toTicket
 import java.io.File
 import java.io.FileOutputStream
 import kotlinx.coroutines.Dispatchers
@@ -77,9 +78,9 @@ class PkpassImportActivity : AppCompatActivity() {
                     }
                 }
 
-                val ticket = payload.toTicket(finalFile.absolutePath)
+                val ticket = parserResult.toTicket(finalFile.absolutePath)
 
-                val previewBitmap = BarcodeUtil.generateCode(payload.barcodeMessage, payload.barcodeFormat, size = 900)
+                val previewBitmap = BarcodeUtil.generateCode(parserResult.barcodeMessage, parserResult.barcodeFormat, size = 900)
                 val previewPath = DticketRepository.savePreviewBitmap(this@PkpassImportActivity, previewBitmap)
 
                 val ticketsRepository = TicketsRepository(this@PkpassImportActivity)
@@ -95,10 +96,12 @@ class PkpassImportActivity : AppCompatActivity() {
 
                 DticketRepository.savePassData(
                     context = this@PkpassImportActivity,
-                    ticketId = ticket.id,
+                    payload = payload,
                     passJson = parserResult.jsonString,
                     pkpassPath = finalFile.absolutePath,
-                    previewPath = previewPath
+                    previewPath = previewPath,
+                    barcodeMessage = parserResult.barcodeMessage,
+                    barcodeFormat = parserResult.barcodeFormat
                 )
                 ticket.id
             } finally {

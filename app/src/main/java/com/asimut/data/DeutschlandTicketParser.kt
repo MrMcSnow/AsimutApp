@@ -1,5 +1,6 @@
 package com.asimut.data
 
+import com.asimut.core.model.PassPayload
 import com.asimut.models.Dticket
 import org.json.JSONException
 import org.json.JSONObject
@@ -11,36 +12,20 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.UUID
 import java.util.zip.ZipInputStream
+import kotlin.text.Charsets
 
 object DeutschlandTicketParser {
 
-    data class Payload(
-        val id: String,
-        val title: String,
-        val subtitle: String?,
+    data class Result(
+        val payload: PassPayload.DeutschlandTicket,
         val barcodeMessage: String,
         val barcodeFormat: String,
-        val validFrom: String?,
-        val validTo: String?,
-        val expirationDate: String?,
-        val holder: String?
-    ) {
-        fun toTicket(pkpassPath: String) = Dticket(
-            id = id,
-            title = title,
-            subtitle = subtitle,
-            barcodeMessage = barcodeMessage,
-            barcodeFormat = barcodeFormat,
-            validFrom = validFrom,
-            validTo = validTo,
-            expirationDate = expirationDate,
-            holder = holder,
-            pkpassLocalPath = pkpassPath
-        )
-    }
-
-    data class Result(
-        val payload: Payload,
+        val title: String,
+        val subtitle: String?,
+        val validFromText: String?,
+        val validToText: String?,
+        val expirationDateText: String?,
+        val holderName: String?,
         val json: JSONObject,
         val jsonString: String
     )
@@ -50,7 +35,40 @@ object DeutschlandTicketParser {
         val json = jsonPair.first
         val jsonString = jsonPair.second
 
-        val serialNumber = json.optString("serialNumber").takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
+        val parsed = buildPayload(json)
+            ?: return null
+
+        return Result(
+            payload = parsed.payload,
+            barcodeMessage = parsed.barcodeMessage,
+            barcodeFormat = parsed.barcodeFormat,
+            title = parsed.title,
+            subtitle = parsed.subtitle,
+            validFromText = parsed.validFromText,
+            validToText = parsed.validToText,
+            expirationDateText = parsed.expirationDateText,
+            holderName = parsed.holderName,
+            json = json,
+            jsonString = jsonString
+        )
+    }
+
+    data class ParsedTicket(
+        val payload: PassPayload.DeutschlandTicket,
+        val barcodeMessage: String,
+        val barcodeFormat: String,
+        val title: String,
+        val subtitle: String?,
+        val validFromText: String?,
+        val validToText: String?,
+        val expirationDateText: String?,
+        val holderName: String?
+    )
+
+    fun buildPayload(json: JSONObject, fallbackId: String? = null): ParsedTicket? {
+        val serialNumber = json.optString("serialNumber").takeIf { it.isNotBlank() }
+            ?: fallbackId
+            ?: UUID.randomUUID().toString()
         val barcodeMessage = json.findBarcodeMessage() ?: return null
         val barcodeFormat = json.findBarcodeFormat()
 
@@ -64,35 +82,42 @@ object DeutschlandTicketParser {
         val validityField = json.findFieldValue(listOf("b4"), listOf("gültig", "gueltig", "valid"))
         val (rangeStart, rangeEnd) = parseValidityRange(validityField)
 
-        val validFrom = formatDate(json.optString("validFrom")) ?: formatDate(rangeStart)
-        val validTo = formatDate(json.optString("validTo"))
-            ?: formatDate(json.optString("validUntil"))
-            ?: formatDate(rangeEnd)
-        val expirationDate = formatDate(json.optString("expirationDate"))
-            ?: json.findFieldValue(emptyList(), listOf("ablauf", "expire"))?.let { formatDate(it) }
+        val validFromDate = parseDate(json.optString("validFrom")) ?: parseDate(rangeStart)
+        val validToDate = parseDate(json.optString("validTo"))
+            ?: parseDate(json.optString("validUntil"))
+            ?: parseDate(rangeEnd)
+        val expirationDate = parseDate(json.optString("expirationDate"))
+            ?: json.findFieldValue(emptyList(), listOf("ablauf", "expire"))?.let { parseDate(it) }
 
         val title = when {
-            !validFrom.isNullOrBlank() && !validTo.isNullOrBlank() -> "$validFrom – $validTo"
-            !validFrom.isNullOrBlank() -> validFrom
-            !validTo.isNullOrBlank() -> validTo
+            validFromDate != null && validToDate != null -> "${validFromDate.display} – ${validToDate.display}"
+            validFromDate != null -> validFromDate.display
+            validToDate != null -> validToDate.display
             else -> organizationName ?: description ?: "Deutschlandticket"
         }
 
         val subtitle = description ?: organizationName
 
-        val payload = Payload(
+        val payload = PassPayload.DeutschlandTicket(
             id = serialNumber,
-            title = title,
-            subtitle = subtitle,
-            barcodeMessage = barcodeMessage,
-            barcodeFormat = barcodeFormat,
-            validFrom = validFrom,
-            validTo = validTo,
-            expirationDate = expirationDate,
-            holder = holder
+            holderName = holder ?: "",
+            validFrom = validFromDate?.epochMillis ?: 0L,
+            validTo = validToDate?.epochMillis ?: 0L,
+            rawBytes = barcodeMessage.toByteArray(Charsets.UTF_8),
+            displayQr = true
         )
 
-        return Result(payload = payload, json = json, jsonString = jsonString)
+        return ParsedTicket(
+            payload = payload,
+            barcodeMessage = barcodeMessage,
+            barcodeFormat = barcodeFormat,
+            title = title,
+            subtitle = subtitle,
+            validFromText = validFromDate?.display,
+            validToText = validToDate?.display,
+            expirationDateText = expirationDate?.display,
+            holderName = holder
+        )
     }
 
     private fun readPassJson(passFile: File): Pair<JSONObject, String>? {
@@ -193,20 +218,25 @@ object DeutschlandTicketParser {
         return value.trim() to null
     }
 
-    private fun formatDate(raw: String?): String? {
+    private data class ParsedDate(val display: String, val epochMillis: Long)
+
+    private fun parseDate(raw: String?): ParsedDate? {
         if (raw.isNullOrBlank()) return null
         val trimmed = raw.trim()
         DATE_PATTERNS.forEach { pattern ->
             try {
                 val parser = SimpleDateFormat(pattern, Locale.getDefault())
                 parser.isLenient = true
-                val date = parser.parse(trimmed) ?: return@forEach
-                return SimpleDateFormat(OUTPUT_DATE_PATTERN, Locale.getDefault()).format(date)
+                val date = parser.parse(trimmed)
+                if (date != null) {
+                    val display = SimpleDateFormat(OUTPUT_DATE_PATTERN, Locale.getDefault()).format(date)
+                    return ParsedDate(display = display, epochMillis = date.time)
+                }
             } catch (_: ParseException) {
                 // try next pattern
             }
         }
-        return trimmed
+        return ParsedDate(display = trimmed, epochMillis = 0L)
     }
 
     private const val BUFFER_SIZE = 4096
@@ -220,3 +250,16 @@ object DeutschlandTicketParser {
         "dd.MM.yy"
     )
 }
+
+fun DeutschlandTicketParser.Result.toTicket(pkpassPath: String) = Dticket(
+    id = payload.id,
+    title = title,
+    subtitle = subtitle,
+    barcodeMessage = barcodeMessage,
+    barcodeFormat = barcodeFormat,
+    validFrom = validFromText,
+    validTo = validToText,
+    expirationDate = expirationDateText,
+    holder = holderName,
+    pkpassLocalPath = pkpassPath
+)
