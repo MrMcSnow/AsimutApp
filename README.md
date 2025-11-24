@@ -45,6 +45,10 @@ Sie bündelt alle wichtigen Hochschuldienste an einem Ort – von Asimut über L
 - 📂 **Dateiverwaltung**
   - Herunterladen und Hochladen von Dokumenten in **LMS / QIS / PaperCut**
   - Unterstützung des Android Storage Access Framework (SAF)
+    
+- ⌚ WearOS-Unterstützung
+AsimutApp kann nun auch auf WearOS-Smartwatches installiert werden.
+Die Installation erfolgt manuell über die APK-Datei, da noch kein Google-Play-Release für WearOS existiert.
 
 - 🌙 **Modernes Design**
   - Hell-/Dunkelmodus  
@@ -142,6 +146,10 @@ Jazz & Media Student @ HMTMH
 - 📂 **File Handling**
   - Supports file **downloads and uploads** in LMS / QIS / PaperCut  
   - Based on Android’s Storage Access Framework (SAF)
+
+- ⌚ WearOS Support
+AsimutApp can also be installed on WearOS smartwatches.
+Installation must be done manually via APK sideloading.
 
 - 🌙 **UI / UX**
   - Modern Material 3 design  
