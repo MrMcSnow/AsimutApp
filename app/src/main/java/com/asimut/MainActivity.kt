@@ -9,6 +9,7 @@ import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
@@ -86,6 +87,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        setupSocialLinks()
+
         navView.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.nav_asimut -> webView.loadUrl("https://hmtm-hannover.asimut.net/")
@@ -128,6 +131,24 @@ class MainActivity : AppCompatActivity() {
         editor.remove("username")
         editor.remove("password")
         editor.apply()
+    }
+
+    private fun setupSocialLinks() {
+        val socialLinks = listOf(
+            R.id.social_telegram to "https://t.me/mr_mcsnow",
+            R.id.social_instagram to "https://www.instagram.com/mr.mcsnow",
+            R.id.social_twitter to "https://x.com/mr_mcsnow",
+            R.id.social_facebook to "https://www.facebook.com/mr.mcsnow",
+            R.id.social_vk to "https://vk.com/s0007",
+            R.id.social_whatsapp to "https://wa.me/message/7777RWHOEUXAD1",
+            R.id.social_viber to "viber://chat/?number=+4915122084363"
+        )
+
+        socialLinks.forEach { (viewId, url) ->
+            navView.findViewById<View>(viewId)?.setOnClickListener {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            }
+        }
     }
 
     private class WebAppInterface(private val context: Context) {
